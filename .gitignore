@@ -1,0 +1,7 @@
+.DS_Store
+*.env*
+
+# 客户/学员的脸、声音、档案，永远不进仓库
+**/references/profiles/*
+!**/references/profiles/README.md
+**/references/clients/
