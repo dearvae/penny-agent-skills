@@ -7,6 +7,8 @@
 |---|---|
 | `agent-shot` | 新闻快讯 / 算账对比 / 常识科普三类口播片 |
 | `newlaunch-shot` | 新盘介绍片（输入开发商 e-book PDF） |
+| `propnex-forms` | 31 份 PropNex 官方表单自动填写（LOI/TA/CEA Forms/OTP/co-broke 等），发资料就能出可签署文件 |
+| `pg-cobroke` | PropertyGuru 自动找盘 + WhatsApp 联系挂盘中介（约盘），首条消息强制手动发送 |
 
 ## 安装
 

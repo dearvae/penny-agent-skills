@@ -1,0 +1,49 @@
+{
+ "skill_name": "propnex-forms",
+ "evals": [
+  {
+   "id": 0,
+   "eval_name": "lease-renewal-complete-info",
+   "prompt": "My tenant wants to renew for another 12 months on the same terms. Unit is 118 West Coast Crescent #05-01 Parc Riviera Singapore 126790, original tenancy agreement dated 15 Sep 2025. New term starts 1 Oct 2026, rent goes up to $4,800/month, security deposit stays at $4,500. Landlord is TAN AH KOW, NRIC S1234567A. Tenant is LI MING, FIN G7654321X. No diplomatic clause for the renewed term and no further option to renew after this. Today is 4 Aug 2026. Prepare the renewal document for signing.",
+   "expected_output": "A filled Lease Renewal/Extension Agreement (Residential) docx based on the official PropNex template: parties, premises, original TA date, 12-month term 1 Oct 2026 - 30 Sep 2027, rent 4,800, deposit remains 4,500, the no-termination diplomatic option kept and the other two struck through, 'not be any further Option to Renew' kept and the alternative struck; unfilled blanks left as lines; recap of what was filled and left blank.",
+   "files": [],
+   "assertions": [
+    "Produces a .docx file in outputs",
+    "Docx is the official PropNex Lease Renewal/Extension template (title 'LEASE RENEWAL / EXTENSION AGREEMENT' present, template wording intact)",
+    "New rent 4,800 and deposit 4,500 both appear in the document",
+    "Landlord NRIC S1234567A and tenant FIN G7654321X appear in the document",
+    "Rejected choose-1 options (2-month-notice diplomatic option / further Option to Renew) are struck through with real strikethrough formatting",
+    "No invented data: fields the prompt didn't provide remain blank lines",
+    "summary.md recaps what was filled and what was left blank"
+   ]
+  },
+  {
+   "id": 1,
+   "eval_name": "form-selection-ambiguous",
+   "prompt": "我是PropNex的agent，帮房东租Parc Riviera的一个condo unit，刚跟租客谈成了，$4,500一个月租12个月。接下来要准备什么文件？帮我搞定。",
+   "expected_output": "Identifies the likely documents (Tenancy Agreement for private condo, CEA Form 3 or 7 commission agreement for the landlord side, AML check, possibly LOI if not yet signed) and presents a short choice of 2-4 candidates rather than all forms; asks for the missing particulars (names, NRIC, exact address, dates, deposit, commission) instead of fabricating them; does NOT invent NRICs or produce a fully-filled document from made-up data.",
+   "files": [],
+   "assertions": [
+    "Offers a short shortlist (2-4 candidates) including a private-condo Tenancy Agreement and a CEA landlord commission form (Form 3 or 7), not a dump of all forms",
+    "Mentions the AML/CDD check obligation before signing any agreement",
+    "Asks for the missing particulars (names, NRIC, address, dates, deposit, commission) instead of fabricating them",
+    "Responds in Chinese, matching the user's language"
+   ]
+  },
+  {
+   "id": 2,
+   "eval_name": "cea-form3-commission-agreement",
+   "prompt": "Need the commission agreement for my landlord to sign - non-exclusive. Landlord: TAN AH KOW, NRIC S1234567A, address 22 Jurong East Ave 1 #12-34 Singapore 609731. Property for lease: 118 West Coast Crescent #05-01 Parc Riviera Singapore 126790. Commission: half a month's rent for a 12-month lease, GST payable, commission is exclusive of GST. My name is PENNY POON, CEA reg R012345A. Agreement date 4 Aug 2026.",
+   "expected_output": "A filled CEA Form 3 (Estate Agency Agreement for Lease of Residential Property by a Landlord) docx: agreement date 04/08/2026 in the dd/mm/yyyy slot, landlord name/NRIC in the correct table cells with the address in the wide value cell (not squeezed in the label column), property in the Property blank, commission terms filled, 'inclusive' struck out (keeping 'exclusive'), salesperson name and CEA reg no filled; official template layout preserved.",
+   "files": [],
+   "assertions": [
+    "Produces a .docx that is the official CEA Form 3 template (prescribed CEA wording and PropNex licence details intact)",
+    "Agreement date 04/08/2026 appears in the dd/mm/yyyy slot",
+    "Landlord TAN AH KOW / S1234567A filled; address appears intact in the wide value cell, not letter-wrapped in the label column",
+    "'inclusive' is struck through and 'exclusive' kept (GST exclusive commission)",
+    "Salesperson PENNY POON and CEA reg R012345A appear",
+    "Commission reflects half a month's rent (S$2,250 or equivalent wording)"
+   ]
+  }
+ ]
+}

@@ -13,4 +13,10 @@ cp "$SRC/agent-shot/references/profiles/README.md" agent-shot/references/profile
 rsync -a --delete --exclude='references/clients/' --exclude='.DS_Store' \
   "$SRC/newlaunch-shot/" newlaunch-shot/
 
+rsync -a --delete --exclude='__pycache__' --exclude='.DS_Store' \
+  ../skills/propnex-forms/ propnex-forms/
+
+rsync -a --delete --exclude='.DS_Store' \
+  "$HOME/.claude/skills/pg-cobroke/" pg-cobroke/
+
 echo "同步完成。检查改动：git diff --stat"
