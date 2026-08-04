@@ -1,25 +1,27 @@
 # 装机清单 · 在一台新机器上把这条线跑起来
 
-给学员/客户装机时照这页走，顺序执行。不碰素材台账的话，半天能装完。
+给学员/客户装机时照这页走，顺序执行。
 
-## 1. 基础环境
+## 1. 基础环境（学员课前自己完成）
+
+照网页指南走：**sgpropertypro.vercel.app/ai-agent**（Claude Desktop 代装，
+装完 Claude 会输出「✅ 体检通过」）。这页覆盖：node / ffmpeg / poppler / whisper-cpp +
+模型（Mac），或 node / Python / ffmpeg / LibreOffice（Windows）。
+不要再走 brew 手装的老路子，两套说法容易打架。
+
+## 2. 装工程（从仓库 clone，不再用 U 盘）
+
+引擎模板在本仓库 `video-engine/`（~5MB，已剥掉所有个人素材）：
 
 ```bash
-xcode-select --install                # git / 编译工具（macOS）
-brew install node ffmpeg poppler      # node ≥18；poppler 是 pdftotext/pdftoppm
-brew install whisper-cpp              # whisper-cli，字幕对齐和 TTS 反听质检用
-# whisper 模型（约 1.6GB）：
-mkdir -p ~/.cache/whisper-models && curl -L -o ~/.cache/whisper-models/ggml-large-v3-turbo.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
+git clone --depth 1 https://github.com/dearvae/penny-agent-skills /tmp/pas
+cp -R /tmp/pas/video-engine/remotion-edit /tmp/pas/video-engine/news-pipeline <工作目录>/
+cd <工作目录>/remotion-edit && npm install
 ```
 
-## 2. 拷工程
+（仓库平时 private，装的时候要么在开放窗口内，要么用有权限的 git。）
 
-把这两个目录整个拷到他的工作目录（U 盘或网盘，`node_modules` 和 `.venv*` 不用拷，重装更稳）：
-
-- `remotion-edit/` — 剪辑工程。拷完 `cd remotion-edit && npm install`
-  （playwright 一并装上：封面渲染用它截图）
-- `news-pipeline/` — TTS + 截图脚本。拷完建 venv：
+- `news-pipeline/` 建 venv：
 
 ```bash
 cd news-pipeline && python3 -m venv .venv-tts && ./.venv-tts/bin/pip install \
@@ -28,19 +30,26 @@ python3 -m venv .venv && ./.venv/bin/pip install playwright && ./.venv/bin/playw
 ```
 
 （`f5-tts-mlx` 是本地配音引擎，Apple Silicon 专用；他要是只走 MiniMax 云端可以不装，
-但装上就多一条不用注册账号的路线，建议都装。）
+但装上就多一条不用注册账号的路线，建议都装。Windows 跳过。）
 
-- 本 skill 目录拷到他机器的 `.claude/skills/agent-shot/`（`references/profiles/` 里
-  **不要带上别人的档案**，清空后再拷）。
+- skill 本体用 `npx skills add dearvae/penny-agent-skills -g` 装（`references/profiles/`
+  在分发仓库里本来就是空的，不会带到别人档案）。
 
 ## 3. MiniMax 账号（可选——只走本地 F5 配音的话可以先跳过）
 
 配音有两条路线（取舍见 `pipeline.md` 第 2 节）：本地 F5-TTS 免费免注册但慢，
 MiniMax 云端快但要账号。想先看效果再决定的，这一步留到他决定转云端时再做。
 
-- 他自己注册 MiniMax，开通语音（费用他自己出——一条 60 秒口播只有几分钱，克隆一次性收费）。
-- 拿 **`sk-api-` 开头**的标准 API Key（`sk-cp-` 订阅 key 调语音会报 2056）。
-- 写进 `news-pipeline/.env.minimax`：`MINIMAX_API_KEY=sk-api-...`，`chmod 600` 。
+- 他自己注册 MiniMax，推荐订 **Audio Starter 套餐 US$5/月**（Console → Packages →
+  Audio；每月 10 万配音点数 + 10 个声音位，克隆声不另收费）。不想包月才走
+  pay-as-you-go（单次最低充 $25，克隆声另收 $1.5/个）。
+- **拿 key 认准 `sk-api-` 开头**（Console → Balance → Get API Key）。
+  ⚠️ 最常见的坑：订完套餐 Plan Details 页顶部给的是 `sk-cp-` 订阅 key，
+  **那个调语音直接报 2056**，报 2056 = 拿错 key，不用查别的。
+- 写进 `news-pipeline/.env.minimax`（`chmod 600`）：
+  - `MINIMAX_API_KEY=sk-api-...`
+  - `MINIMAX_VOICE_ID=<本人克隆音色id>` —— 建档克隆完写入；不写会落回默认音色（Penny 的），
+    在别人账号上跑会报错
 
 ## 4. Claude 订阅
 
@@ -48,7 +57,14 @@ MiniMax 云端快但要账号。想先看效果再决定的，这一步留到他
 
 ## 5. 验收（三步，全过才算装完）
 
-1. **渲染通**：`cd remotion-edit && npx remotion render src/index.ts <现成合成id> /tmp/test.mp4 --log=error`
+1. **渲染通**：模板自带最小验收脚本——
+
+```bash
+cd remotion-edit && node scripts/build-video.mjs scripts/demo.md && \
+npx remotion render Demo out/demo.mp4 --log=error
+```
+
+   出得来 `out/demo.mp4`（约 2 秒）就算通。
 2. **TTS 通**：拿范例 script.json 跑一次他选的引擎——`tts_clone.py`（本地）或
    `tts_minimax.py`（云端，记得先备份 `newsIndex.ts`，见 pipeline.md 坑1）
 3. **封面通**：拷一份封面工程 `node render.cjs`，出得来 png
