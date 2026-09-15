@@ -393,6 +393,10 @@ def run(args) -> int:
         "title": script.get("title", ""),
         "cover": script.get("cover"),
         "coverImage": script.get("coverImage"),
+        # agent-shot / newlaunch-shot 线要的字段，原样透传（落款、视觉风格、配乐）
+        "signoff": script.get("signoff"),
+        "style": script.get("style"),
+        "music": script.get("music"),
         "sources": script.get("sources", []),
         "voice": "penny-clone-f5",
         "rate": f"x{args.speed}",

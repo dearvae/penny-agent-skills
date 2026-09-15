@@ -45,6 +45,8 @@ export type Shot =
       zoom?: number;
       /** 关掉缓推（默认开） */
       still?: boolean;
+      /** zoom punch：画面开始后 at 秒硬切放大 scale 倍（默认 1.2） */
+      punch?: { at: number; scale?: number };
     }
   /** 静图 + Ken Burns */
   | {
@@ -55,7 +57,7 @@ export type Shot =
       pan?: [number, number];
     }
   /** 口播真人全屏（放大裁切）。画面来自 vo 自身的 mp4 */
-  | { kind: "person"; trim?: number; dur?: number; zoom?: number }
+  | { kind: "person"; trim?: number; dur?: number; zoom?: number; punch?: { at: number; scale?: number } }
   /** 大标题字卡 */
   | { kind: "title"; text: string; dur?: number }
   /** 数字大卡 */
@@ -362,11 +364,12 @@ const BrollShot: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const z = s.zoom ?? 1.04;
-  const scale = s.still
+  const base = s.still
     ? z
     : interpolate(frame, [0, frames], [z, z * 1.05], {
         extrapolateRight: "clamp",
       });
+  const scale = base * punchScale(s.punch, frame, fps);
   return (
     <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
       <Video
@@ -413,14 +416,22 @@ const PhotoShot: React.FC<{
   );
 };
 
+/** zoom punch：到点那一帧直接跳到放大倍数（硬切，不做过渡），之前是 1 */
+const punchScale = (
+  punch: { at: number; scale?: number } | undefined,
+  frame: number,
+  fps: number,
+) => (punch && frame >= Math.round(punch.at * fps) ? (punch.scale ?? 1.2) : 1);
+
 // 口播人像统一放大裁切（和 segments.tsx 的 PERSON_ZOOM 保持一致）
 const PersonShot: React.FC<{
   s: Extract<Shot, { kind: "person" }>;
   vo?: string;
 }> = ({ s, vo }) => {
   const { fps } = useVideoConfig();
+  const frame = useCurrentFrame();
   if (!vo) return <AbsoluteFill style={{ background: theme.ink }} />;
-  const z = s.zoom ?? 1.32;
+  const z = (s.zoom ?? 1.32) * punchScale(s.punch, frame, fps);
   return (
     <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
       <Video

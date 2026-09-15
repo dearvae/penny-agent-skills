@@ -18,15 +18,16 @@ import { theme } from "./theme";
 export const NEWS_ENDING_FRAMES = 135;
 export type EndingVariant = "news" | "listing";
 export const endingFrames = (variant?: EndingVariant | null): number =>
-  variant === "listing" ? 168 : NEWS_ENDING_FRAMES;
+  variant === null ? 0 : variant === "listing" ? 168 : NEWS_ENDING_FRAMES;
 
 const CX = 540;
 const CY = 760;
 const R = 300;
 
-export const NewsEnding: React.FC<{ variant?: EndingVariant | null }> = ({
-  variant,
-}) => {
+export const NewsEnding: React.FC<{
+  variant?: EndingVariant | null;
+  audioSrc?: string;
+}> = ({variant, audioSrc}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const listing = variant === "listing";
@@ -35,6 +36,10 @@ export const NewsEnding: React.FC<{ variant?: EndingVariant | null }> = ({
   const base = interpolate(pop, [0, 1], [1.45, 1]);
   const wobble = 1 + 0.02 * Math.sin((frame / fps) * Math.PI * 1.6);
   const r = R * base * wobble;
+  const t = frame / fps;
+  const glowX = 50 + 19 * Math.sin(t * 1.85);
+  const glowY = 42 + 15 * Math.cos(t * 1.5);
+  const glowAlpha = 0.065 + 0.025 * Math.sin(t * 3.2);
 
   const textIn = (delaySec: number) =>
     spring({
@@ -52,8 +57,16 @@ export const NewsEnding: React.FC<{ variant?: EndingVariant | null }> = ({
       <Audio src={staticFile("sfx/ding.wav")} volume={0.9} />
       <Audio
         src={staticFile(
-          listing ? "news-ending/vo_follow_listing.mp3" : "news-ending/vo_follow.mp3",
+          audioSrc ??
+            (listing ? "news-ending/vo_follow_listing.mp3" : "news-ending/vo_follow.mp3"),
         )}
+      />
+      <AbsoluteFill
+        style={{
+          pointerEvents: "none",
+          background: `radial-gradient(circle at ${glowX}% ${glowY}%, rgba(233,162,59,${glowAlpha}) 0%, rgba(233,162,59,${glowAlpha * 0.35}) 42%, rgba(233,162,59,0) 72%)`,
+          mixBlendMode: "screen",
+        }}
       />
       {/* 人像视频，圆形裁切（复用通用片尾底板） */}
       <AbsoluteFill

@@ -14,6 +14,7 @@ import { Audio, Video } from "@remotion/media";
 import type { Caption } from "@remotion/captions";
 import { NewLaunchEnding, NEWLAUNCH_ENDING_FRAMES, type Signoff } from "./NewLaunchEnding";
 import { theme } from "./theme";
+import { StyleCtx, resolveMusic, resolveStyle, useStyle, type MusicSpec } from "./styles";
 
 /* ────────────────────────────────────────────────────────────
    数据结构 —— 客户中介「新盘介绍」线（newlaunch-shot skill）
@@ -51,6 +52,9 @@ export type NewLaunchManifest = {
   segments: NLSegment[];
   sources?: { title: string; outlet?: string; url: string }[];
   signoff?: Signoff;
+  ending?: boolean; // false = 不接固定片尾（用户明确说不要时才写；默认每条片都带）
+  style?: string; // 视觉风格 id：classic / warm / fresh / luxe / bold（见 styles.ts），不写 = classic
+  music?: MusicSpec; // 配乐：不写 = 跟风格走的默认曲；曲库 id；false = 不铺；详见 styles.ts
   voiceTotalSec: number;
 };
 
@@ -63,7 +67,7 @@ export const newLaunchDuration = (m: NewLaunchManifest): number => {
     (acc, s) => acc + Math.round((s.durationSec + m.gapSec) * fps),
     0,
   );
-  return nlCoverLeadFrames(m) + body + NEWLAUNCH_ENDING_FRAMES;
+  return nlCoverLeadFrames(m) + body + (m.ending === false ? 0 : NEWLAUNCH_ENDING_FRAMES);
 };
 
 const asset = (slug: string, p: string) => staticFile(`newlaunch/${slug}/${p}`);
@@ -76,11 +80,17 @@ const asset = (slug: string, p: string) => staticFile(`newlaunch/${slug}/${p}`);
 const NUM_SPLIT = /([0-9]+(?:\.[0-9]+)?%?)/g;
 const IS_NUM = /^[0-9]+(?:\.[0-9]+)?%?$/;
 
-const CaptionLine: React.FC<{ text: string; big: boolean }> = ({ text, big }) => {
+export const CaptionLine: React.FC<{ text: string; big: boolean }> = ({ text, big }) => {
   const frame = useCurrentFrame();
+  const st = useStyle();
   const scale = interpolate(frame, [0, 4], [0.93, 1], { extrapolateRight: "clamp" });
   const opacity = interpolate(frame, [0, 3], [0, 1], { extrapolateRight: "clamp" });
   const parts = text.split(NUM_SPLIT).filter(Boolean);
+  const boxed = Boolean(st.captionBox);
+  // 字幕永远一行：按字数把字号缩到能放进 960px（含字间距 2），不折行。正常情况断行规则已保证 ≤14 字，这里只是兜底。
+  const base = big ? 74 : 58;
+  const chars = Array.from(text).length;
+  const fontSize = Math.min(base, Math.floor((960 - (boxed ? 56 : 0)) / Math.max(chars, 1)) - 2);
 
   return (
     <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center" }}>
@@ -89,21 +99,31 @@ const CaptionLine: React.FC<{ text: string; big: boolean }> = ({ text, big }) =>
           marginBottom: big ? 400 : 320,
           transform: `scale(${scale})`,
           opacity,
-          fontFamily: theme.font,
-          fontSize: big ? 74 : 58,
+          fontFamily: st.font,
+          fontSize,
           fontWeight: 900,
-          color: "#FFFFFF",
+          color: st.captionColor,
           letterSpacing: 2,
           textAlign: "center",
-          maxWidth: 960,
+          whiteSpace: "nowrap",
           lineHeight: 1.25,
-          textShadow:
-            "0 2px 8px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.5), 2px 2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9)",
+          // 带底框的风格（warm / bold）靠底框保证在浅色画面上也看得清，不用描边
+          ...(boxed
+            ? {
+                background: st.captionBox,
+                padding: "12px 28px",
+                borderRadius: Math.min(st.radius, 22),
+                boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+              }
+            : {
+                textShadow:
+                  "0 2px 8px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.5), 2px 2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9)",
+              }),
         }}
       >
         {parts.map((p, i) =>
           IS_NUM.test(p) ? (
-            <span key={i} style={{ color: theme.gold }}>
+            <span key={i} style={{ color: st.captionNumber }}>
               {p}
             </span>
           ) : (
@@ -175,13 +195,14 @@ const BrollVisual: React.FC<{ v: Extract<NLVisual, { type: "broll" }>; frames: n
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   const z = v.zoom ?? 1.08;
   // 慢推，全程 +4%，比静止画面耐看
   const scale = interpolate(frame, [0, frames], [z, z * 1.04], {
     extrapolateRight: "clamp",
   });
   return (
-    <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
+    <AbsoluteFill style={{ background: st.bg, overflow: "hidden" }}>
       <Video
         src={staticFile(v.src)}
         trimBefore={Math.round((v.trimBeforeSec ?? 0) * fps)}
@@ -226,12 +247,13 @@ const NLCardVisual: React.FC<{
 }> = ({ v, slug, frames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   const src = asset(slug, v.src);
   const s = spring({ frame, fps, config: { damping: 15, mass: 0.7 } });
   const drift = interpolate(frame, [0, frames], [0, -26], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
+    <AbsoluteFill style={{ background: st.bg, overflow: "hidden" }}>
       <Img
         src={src}
         style={{
@@ -323,12 +345,13 @@ const PhotoVisual: React.FC<{
   frames: number;
 }> = ({ v, slug, frames }) => {
   const frame = useCurrentFrame();
+  const st = useStyle();
   const z0 = v.zoom ?? 1.06;
   const zoom = interpolate(frame, [0, frames], [1.0, z0], {
     extrapolateRight: "clamp",
   });
   return (
-    <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
+    <AbsoluteFill style={{ background: st.bg, overflow: "hidden" }}>
       <Img
         src={asset(slug, v.src)}
         style={{
@@ -351,26 +374,26 @@ const PhotoVisual: React.FC<{
   );
 };
 
-const TREND = {
-  up: { arrow: "▲", color: "#E8442E" },
-  down: { arrow: "▼", color: "#2FA36B" },
-  flat: { arrow: "", color: theme.gold },
-};
-
-const StatVisual: React.FC<{ v: Extract<NLVisual, { type: "stat" }> }> = ({ v }) => {
+export const StatVisual: React.FC<{ v: Extract<NLVisual, { type: "stat" }> }> = ({ v }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   const s = spring({ frame, fps, config: { damping: 12, mass: 0.7 } });
+  const TREND = {
+    up: { arrow: "▲", color: "#E8442E" },
+    down: { arrow: "▼", color: "#2FA36B" },
+    flat: { arrow: "", color: st.highlight },
+  };
   const t = TREND[v.trend ?? "flat"];
   const pulse = 1 + 0.012 * Math.sin((frame / fps) * Math.PI * 1.4);
 
   return (
     <AbsoluteFill
       style={{
-        background: `radial-gradient(circle at 50% 40%, #2A2A32 0%, ${theme.ink} 62%)`,
+        background: st.bgSoft,
         alignItems: "center",
         justifyContent: "flex-start",
-        fontFamily: theme.font,
+        fontFamily: st.font,
       }}
     >
       <div
@@ -385,10 +408,10 @@ const StatVisual: React.FC<{ v: Extract<NLVisual, { type: "stat" }> }> = ({ v })
           style={{
             fontSize: 168,
             fontWeight: 900,
-            color: "#FFFFFF",
+            color: st.text,
             letterSpacing: -2,
             lineHeight: 1,
-            textShadow: "0 8px 40px rgba(0,0,0,0.5)",
+            textShadow: st.captionBox ? "none" : "0 8px 40px rgba(0,0,0,0.5)",
           }}
         >
           {v.value}
@@ -401,7 +424,7 @@ const StatVisual: React.FC<{ v: Extract<NLVisual, { type: "stat" }> }> = ({ v })
             marginTop: 36,
             fontSize: 42,
             fontWeight: 700,
-            color: "rgba(255,255,255,0.72)",
+            color: st.textMuted,
             letterSpacing: 3,
           }}
         >
@@ -421,16 +444,17 @@ const StatVisual: React.FC<{ v: Extract<NLVisual, { type: "stat" }> }> = ({ v })
   );
 };
 
-const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = ({ v }) => {
+export const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = ({ v }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   return (
     <AbsoluteFill
       style={{
-        background: `linear-gradient(160deg, #23232B 0%, ${theme.ink} 70%)`,
+        background: st.bgSoft,
         alignItems: "center",
         justifyContent: "flex-start",
-        fontFamily: theme.font,
+        fontFamily: st.font,
       }}
     >
       <div style={{ marginTop: 520, width: 880 }}>
@@ -438,7 +462,7 @@ const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = (
           style={{
             fontSize: 46,
             fontWeight: 900,
-            color: theme.gold,
+            color: st.highlight,
             letterSpacing: 6,
             marginBottom: 46,
             textAlign: "center",
@@ -459,9 +483,9 @@ const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = (
                 display: "flex",
                 alignItems: "center",
                 gap: 26,
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 24,
+                background: st.surface,
+                border: `1px solid ${st.border}`,
+                borderRadius: Math.min(st.radius, 24),
                 padding: "30px 34px",
                 marginBottom: 24,
                 opacity: Math.min(1, s * 1.5),
@@ -473,7 +497,7 @@ const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = (
                   minWidth: 58,
                   height: 58,
                   borderRadius: 999,
-                  background: theme.accent,
+                  background: st.accent,
                   color: "#fff",
                   fontSize: 32,
                   fontWeight: 900,
@@ -484,7 +508,7 @@ const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = (
               >
                 {i + 1}
               </div>
-              <div style={{ fontSize: 44, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>
+              <div style={{ fontSize: 44, fontWeight: 700, color: st.text, lineHeight: 1.3 }}>
                 {item}
               </div>
             </div>
@@ -495,9 +519,10 @@ const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = (
   );
 };
 
-const TitleVisual: React.FC<{ v: Extract<NLVisual, { type: "title" }> }> = ({ v }) => {
+export const TitleVisual: React.FC<{ v: Extract<NLVisual, { type: "title" }> }> = ({ v }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   const s = spring({ frame, fps, config: { damping: 13, mass: 0.6 } });
   // 按最长行自适应字号：可用宽约 1000px，字宽 = fontSize + letterSpacing(12)
   const maxChars = Math.max(...v.text.split("\n").map((l) => l.length), 1);
@@ -505,17 +530,17 @@ const TitleVisual: React.FC<{ v: Extract<NLVisual, { type: "title" }> }> = ({ v 
   return (
     <AbsoluteFill
       style={{
-        background: theme.ink,
+        background: st.bg,
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: theme.font,
+        fontFamily: st.font,
       }}
     >
       <div
         style={{
           fontSize,
           fontWeight: 900,
-          color: "#fff",
+          color: st.text,
           letterSpacing: 12,
           lineHeight: 1.3,
           whiteSpace: "pre-line",
@@ -532,7 +557,7 @@ const TitleVisual: React.FC<{ v: Extract<NLVisual, { type: "title" }> }> = ({ v 
           width: interpolate(s, [0, 1], [0, 300]),
           height: 10,
           borderRadius: 999,
-          background: theme.accent,
+          background: st.accent,
         }}
       />
     </AbsoluteFill>
@@ -560,7 +585,7 @@ const VisualLayer: React.FC<{ v: NLVisual; slug: string; frames: number }> = ({
     case "title":
       return <TitleVisual v={v} />;
     default:
-      return <AbsoluteFill style={{ background: theme.ink }} />;
+      return <AbsoluteFill style={{ background: resolveStyle().bg }} />;
   }
 };
 
@@ -568,9 +593,10 @@ const VisualLayer: React.FC<{ v: NLVisual; slug: string; frames: number }> = ({
    常驻元素：顶栏 / 进度条 / 印章
    ──────────────────────────────────────────────────────────── */
 
-const TopBar: React.FC<{ kicker: string; sub?: string }> = ({ kicker, sub }) => {
+export const TopBar: React.FC<{ kicker: string; sub?: string }> = ({ kicker, sub }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   const s = spring({ frame, fps, config: { damping: 16, mass: 0.6 } });
   const blink = 0.55 + 0.45 * Math.sin((frame / fps) * Math.PI * 2.2);
   return (
@@ -581,12 +607,12 @@ const TopBar: React.FC<{ kicker: string; sub?: string }> = ({ kicker, sub }) => 
           display: "flex",
           alignItems: "center",
           gap: 16,
-          background: "rgba(23,23,27,0.72)",
-          border: "1px solid rgba(255,255,255,0.14)",
+          background: st.pillBg,
+          border: `1px solid ${st.border}`,
           backdropFilter: "blur(12px)",
-          borderRadius: 999,
+          borderRadius: st.radius,
           padding: "14px 30px 14px 22px",
-          fontFamily: theme.font,
+          fontFamily: st.font,
           opacity: Math.min(1, s * 1.4),
           transform: `translateY(${(1 - s) * -30}px)`,
         }}
@@ -596,16 +622,16 @@ const TopBar: React.FC<{ kicker: string; sub?: string }> = ({ kicker, sub }) => 
             width: 16,
             height: 16,
             borderRadius: 999,
-            background: theme.accent,
+            background: st.accent,
             opacity: blink,
-            boxShadow: `0 0 16px ${theme.accent}`,
+            boxShadow: `0 0 16px ${st.accent}`,
           }}
         />
-        <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", letterSpacing: 4 }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: st.pillText, letterSpacing: 4 }}>
           {kicker}
         </div>
         {sub ? (
-          <div style={{ fontSize: 28, fontWeight: 600, color: "rgba(255,255,255,0.5)" }}>
+          <div style={{ fontSize: 28, fontWeight: 600, color: st.pillText, opacity: 0.55 }}>
             {sub}
           </div>
         ) : null}
@@ -614,8 +640,9 @@ const TopBar: React.FC<{ kicker: string; sub?: string }> = ({ kicker, sub }) => 
   );
 };
 
-const ProgressBar: React.FC<{ total: number }> = ({ total }) => {
+export const ProgressBar: React.FC<{ total: number }> = ({ total }) => {
   const frame = useCurrentFrame();
+  const st = useStyle();
   const pct = interpolate(frame, [0, total], [0, 100], { extrapolateRight: "clamp" });
   return (
     <div
@@ -625,10 +652,10 @@ const ProgressBar: React.FC<{ total: number }> = ({ total }) => {
         right: 0,
         bottom: 0,
         height: 8,
-        background: "rgba(255,255,255,0.13)",
+        background: st.border,
       }}
     >
-      <div style={{ width: `${pct}%`, height: "100%", background: theme.gold }} />
+      <div style={{ width: `${pct}%`, height: "100%", background: st.highlight }} />
     </div>
   );
 };
@@ -636,6 +663,7 @@ const ProgressBar: React.FC<{ total: number }> = ({ total }) => {
 const Stamp: React.FC<{ text: string }> = ({ text }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const st = useStyle();
   const s = spring({ frame: Math.max(0, frame - 8), fps, config: { damping: 9, mass: 0.5 } });
   return (
     <div
@@ -645,11 +673,11 @@ const Stamp: React.FC<{ text: string }> = ({ text }) => {
         top: 250,
         transform: `rotate(-11deg) scale(${interpolate(s, [0, 1], [2.1, 1])})`,
         opacity: Math.min(1, s * 2),
-        border: `7px solid ${theme.accent}`,
+        border: `7px solid ${st.accent}`,
         borderRadius: 18,
         padding: "12px 26px",
-        color: theme.accent,
-        fontFamily: theme.font,
+        color: st.accent,
+        fontFamily: st.font,
         fontSize: 52,
         fontWeight: 900,
         letterSpacing: 4,
@@ -671,6 +699,10 @@ export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ mani
   const total = newLaunchDuration(manifest);
   const kicker = manifest.cover?.kicker ?? "新盘介绍";
   const sub = manifest.cover?.sub;
+  const st = resolveStyle(manifest.style);
+  const music = resolveMusic(manifest.music, st);
+  const fade = 2 * fps; // BGM 开头 2 秒淡入、结尾 2 秒淡出
+  const endFrames = manifest.ending === false ? 0 : NEWLAUNCH_ENDING_FRAMES;
 
   const coverLead = nlCoverLeadFrames(manifest);
   let cursor = coverLead;
@@ -682,19 +714,25 @@ export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ mani
   });
 
   return (
-    <AbsoluteFill style={{ background: theme.ink }}>
-      <Audio
-        src={staticFile("music/placeholder_beat.mp3")}
-        loop
-        volume={(f) =>
-          interpolate(
-            f,
-            [0, 20, total - NEWLAUNCH_ENDING_FRAMES - 30, total - NEWLAUNCH_ENDING_FRAMES],
-            [0, 0.075, 0.075, 0],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-          )
-        }
-      />
+    <StyleCtx.Provider value={st}>
+    <AbsoluteFill style={{ background: st.bg }}>
+      {/* 配乐：曲库 id / 跟风格走 / false 不铺。音量在 styles.ts 里按曲子校准过
+          （音乐 mean ≈ 人声 mean − 2 dB），script.json 里 music.volume 是在这之上的倍数。 */}
+      {music ? (
+        <Audio
+          src={staticFile(music.src)}
+          trimBefore={Math.round(music.trimBeforeSec * fps)}
+          loop
+          volume={(f) =>
+            interpolate(
+              f,
+              [0, fade, Math.max(fade + 1, total - fade), total],
+              [0, music.volume, music.volume, 0],
+              { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+            )
+          }
+        />
+      ) : null}
 
       {/* 连续 room tone 垫底。
           克隆声自带 −37dB 底噪，而段落空隙是数字静音（−67dB），落差 47dB ——
@@ -706,7 +744,7 @@ export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ mani
         volume={(f) =>
           interpolate(
             f,
-            [0, 15, total - NEWLAUNCH_ENDING_FRAMES - 20, total - NEWLAUNCH_ENDING_FRAMES],
+            [0, 15, total - endFrames - 20, total - endFrames],
             [0, 0.45, 0.45, 0],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           )
@@ -727,15 +765,17 @@ export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ mani
         <ProgressBar total={cursor} />
       </Sequence>
 
+      {manifest.ending === false ? null : (
       <Sequence from={cursor} durationInFrames={NEWLAUNCH_ENDING_FRAMES} name="ending">
         <NewLaunchEnding
           signoff={{
-            ...(manifest.signoff ?? { name: "", cea: "", agency: "" }),
+            ...(manifest.signoff ?? { name: "" }),
             project: manifest.signoff?.project ?? manifest.cover?.kicker,
           }}
           slug={manifest.slug}
         />
       </Sequence>
+      )}
 
       {manifest.coverImage ? (
         <Sequence durationInFrames={coverLead} name="cover">
@@ -748,5 +788,6 @@ export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ mani
         </Sequence>
       ) : null}
     </AbsoluteFill>
+    </StyleCtx.Provider>
   );
 };

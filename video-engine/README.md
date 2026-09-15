@@ -1,7 +1,7 @@
 # video-engine · 出片引擎模板
 
 `agent-shot` / `newlaunch-shot` 两个 skill 的渲染引擎。**这不是 skill**，是要拷到
-学员/客户工作目录里的两个工程目录（共 ~5MB，素材目录是空骨架，用的时候自己长）。
+学员/客户工作目录里的两个工程目录（共 ~22MB，其中 17MB 是内置 BGM；素材目录是空骨架，用的时候自己长）。
 
 ## 装（Claude 照 agent-shot/references/setup.md 走即可）
 
@@ -18,6 +18,15 @@ node scripts/build-video.mjs scripts/demo.md && npx remotion render Demo out/dem
 ```
 
 出得来 `out/demo.mp4` 就算装好。
+
+## 引擎自带的东西
+
+- **5 套视觉风格**（`src/styles.ts`）：classic 经典黑金 / warm 温暖米白 / fresh 清爽蓝绿 / luxe 墨绿鎏金 / bold 活力橙黄。
+  script.json 顶层 `"style": "<id>"` 选，建档时跑 `bash scripts/style-previews.sh --sheet` 出对比图给学员挑
+  （不带 `--sheet` 会连 5 条带配乐的样片一起出）。
+- **10 首 BGM**（`public/music/bgm/`，目录里有曲库表）：`"music"` 不写就配该风格的默认曲，写曲库 id 换曲，
+  `false` 不铺。音量已按曲子校准（音乐 ≈ 人声 −2 dB），2 秒淡入淡出。来源是剪映曲库，各平台商用授权学员自己确认。
+- 落款卡 `signoff` 里 `cea` / `agency` 可选，留空不渲；`cta` 是片尾行动句。
 
 ## 配置（每台机器各自的，不进 git）
 

@@ -13,6 +13,9 @@ cp "$SRC/agent-shot/references/profiles/README.md" agent-shot/references/profile
 rsync -a --delete --exclude='references/clients/' --exclude='.DS_Store' \
   "$SRC/newlaunch-shot/" newlaunch-shot/
 
+rsync -a --delete --exclude='.DS_Store' \
+  "$SRC/agent-cut/" agent-cut/
+
 rsync -a --delete --exclude='__pycache__' --exclude='.DS_Store' \
   ../skills/propnex-forms/ propnex-forms/
 
@@ -26,15 +29,16 @@ echo "同步完成。检查改动：git diff --stat"
 # scripts/demo.md / README.md / .env.minimax.example）不在同步范围，不会被冲掉。
 RE=../remotion-edit
 for f in AutoVideo.tsx Ending.tsx ProgressCheck.tsx theme.ts sfx.ts WordCaptions.tsx DataAnim.tsx \
-         NewsVideo.tsx NewsEnding.tsx NewLaunchVideo.tsx NewLaunchEnding.tsx index.css index.ts; do
+         NewsVideo.tsx NewsEnding.tsx NewLaunchVideo.tsx NewLaunchEnding.tsx index.css index.ts \
+         styles.ts StylePreview.tsx Cover.tsx NewsVisualsP1.tsx newsMediaPlan.ts; do
   cp "$RE/src/$f" video-engine/remotion-edit/src/
 done
-rsync -a --exclude='*.md' --exclude='vo/' --exclude='__pycache__' \
+rsync -a --exclude='*.md' --exclude='vo/' --exclude='__pycache__' --exclude='forms_demo*' \
   "$RE/scripts/" video-engine/remotion-edit/scripts/
 cp "$RE/SCRIPT_FORMAT.md" "$RE/package.json" "$RE/package-lock.json" \
    "$RE/tsconfig.json" "$RE/remotion.config.ts" video-engine/remotion-edit/
 rsync -a --delete "$RE/public/sfx/" video-engine/remotion-edit/public/sfx/
-rsync -a --delete "$RE/public/music/" video-engine/remotion-edit/public/music/
+rsync -a --delete --exclude='p1_bgm.mp3' "$RE/public/music/" video-engine/remotion-edit/public/music/
 rsync -a --exclude='.env.minimax' --exclude='__pycache__' --exclude='output/' \
   --exclude='assets/' --exclude='.venv*' --include='*.py' --exclude='*' \
   ../news-pipeline/ video-engine/news-pipeline/

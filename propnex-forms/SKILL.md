@@ -22,6 +22,16 @@ They are plain Word documents with underscore blanks; `scripts/fill_form.py`
 fills them **in place**, so the output keeps the official logo, layout,
 footers and version codes — it looks exactly like a hand-completed original.
 
+## Prerequisites (check before every run; stop and fix any missing **required** item first)
+
+| | Item | How to verify |
+|---|---|---|
+| Required | `python3` available (fills the .docx templates) | `python3 --version` |
+| Required | A PDF converter: LibreOffice (`soffice`) or, on macOS, Pages | `which soffice`, or Pages.app exists; if neither, deliver .docx and say so |
+| Required | The deal facts (parties, IDs, two addresses, money, dates) or documents they can be read from | listed in the "already have / still need" checklist before filling |
+| Optional | SLA / INLIS title search, passport photos, ICA IPA letter, previous LOI / TA | if present, extract first; if absent, ask in one message |
+| Optional | Agent profile (name, CEA reg no.) | if absent, leave the salesperson blanks for hand-filling |
+
 Respond in the language the user writes in. The users are licensed Singapore
 agents: be efficient and use industry terms (LOI, TA, co-broke, GFD) freely.
 

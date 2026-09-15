@@ -22,8 +22,41 @@
 - 网图优先级：事件方官方通稿图 → Wikimedia Commons → Pexels/Unsplash。
   下载到 `<slug>/shots/`，每张记进 `shots/SOURCES.md`（文件 ← URL）。
 - 新闻卡截图：`cd news-pipeline && ./.venv/bin/python shoot.py --url <一手来源URL> --id <短名> --outdir ../remotion-edit/public/newlaunch/<slug>/shots`
-- 最后一段留给落款卡：姓名 + 联系方式。**CEA 注册号和经纪行只在他确认要挂时才加**——
-  提醒（正式营销物料按规矩要挂）是你的事，挂不挂是他的决定，不要自动加上去。
+- 最后一段留给落款卡：`signoff` 写姓名 + 头像 + 联系方式 + `cta`（行动句，默认「想看户型图和价格表」是新盘片的，
+  新闻/算账/科普片写「有问题，找我聊」这类）。`cea` / `agency` **他给了才填，没给留空**，引擎不会渲出空行；
+  提醒（正式营销物料按规矩要挂）是交付时的事，不要自动加上去，也不要因为没有就停下来问。
+- `signoff.layout`：档案里的片尾版式（`card` / `namecard` / `photo`，见 onboarding.md 第 6 节），每条片固定带；顶层 `"ending": false` 只在用户明确说不要片尾时写。
+- 顶层 `style`：档案里的视觉风格 id（内置 `classic` / `warm` / `fresh` / `luxe` / `bold` 定义在 `remotion-edit/src/styles.ts`；学员自定义的在 `src/customStyles.json`，用 `scripts/add-style.mjs` 生成，见 onboarding.md 第 5 节），不写 = classic。
+- 顶层 `music`：配乐。不写 = 跟风格走的默认曲；写曲库 id（下表）换一首；`false` = 不铺音乐；
+  `{"track": "09_light_relaxed", "volume": 0.7}` = 换曲并把音量压到标准的 0.7 倍。
+  每首的音量已按「音乐 mean ≈ 人声 mean − 2 dB」校准，换曲不用重调。
+
+| id | 风格 | 适合 |
+|---|---|---|
+| `01_business_promo` | 商务宣传 | 项目介绍、正式的市场解读 |
+| `02_warm_healing` | 治愈温馨 | 家庭、自住、暖心科普 |
+| `03_funk_upbeat` | 动感放克 | 节奏快、有梗的对比片 |
+| `04_vlog_indie_pop` | VLOG | 日常口吻、年轻客群 |
+| `05_guofeng_grand` | 国风大气 | 豪宅、大盘、要气势 |
+| `06_travel_loop` | 旅行 | 地段、周边环境 |
+| `07_beat_drop_rock` | 卡点 | 图片快闪、数据轰炸 |
+| `08_trending_peach` | 抖音热门 | 短平快热门梗 |
+| `09_light_relaxed` | 轻快放松 | 新闻快讯、算账、通用垫乐（classic 默认） |
+| `10_guitar_afternoon` | 纯音乐吉他 | 舒缓、温和科普（warm 默认） |
+
+  风格默认曲：classic→09、warm→10、fresh→04、luxe→05、bold→03。曲子来自剪映曲库，
+  各平台商用授权学员自己确认（`public/music/bgm/README.md` 有说明），交付物料里带一句。
+  **每条片都主动按内容挑一首**（选法见 SKILL.md 第 4 节），不要每条都用默认曲。
+
+- **加曲子（学员自己的音乐）**：他把文件放进某个文件夹、给了这个聊天权限之后，每首跑一次：
+
+```bash
+cd remotion-edit && node scripts/add-bgm.mjs "<文件路径>" "<风格，如 轻柔钢琴>" "<适合什么内容，如 温情科普、家庭自住>"
+```
+
+  脚本会转成 mp3 拷进 `public/music/bgm/`、量 mean_volume、算时长、把一行写进 `src/styles.ts` 的 `BGM_TRACKS`
+  （`// ADD_BGM_HERE` 之前）和 `bgm/README.md`。加完 `npx tsc --noEmit` 过一下；以后挑曲时把这些一并纳入。
+  风格和适用内容他不说就自己听一遍写；版权提醒一句是他自己的。
 
 ## 2. TTS
 
@@ -68,14 +101,15 @@ grep -c "^import m_" remotion-edit/src/newsIndex.ts            # 数量必须跟
 - **坑1：TTS 会洗掉 `src/newsIndex.ts`**（实测过）。`tts_minimax.py` 收尾调
   `write_news_index()`，路径写死 `public/news/`，素材在 `public/newlaunch/` 时会把
   news 线的 index 洗坏。每次都要备份→跑→还原→验数。
-- **坑2：manifest.json 不带 signoff**。跑完 TTS 手动补：
+- **坑2：manifest.json 要带 signoff / style / music**。2026-09-15 起 `tts_minimax.py` / `tts_clone.py` 会从 script.json
+  原样透传这三个字段；渲染前 `grep -c signoff manifest.json` 看一眼，是 0 说明引擎是旧版，手动补：
 
 ```bash
 python3 -c "
 import json,pathlib
 b=pathlib.Path('remotion-edit/public/newlaunch/<slug>')
 s=json.loads((b/'script.json').read_text('utf-8')); m=json.loads((b/'manifest.json').read_text('utf-8'))
-m['signoff']=s['signoff']; m['coverImage']=s.get('coverImage')
+for k in ('signoff','coverImage','style','music'): m[k]=s.get(k)
 (b/'manifest.json').write_text(json.dumps(m,ensure_ascii=False,indent=2),'utf-8')"
 ```
 
@@ -103,27 +137,20 @@ cd remotion-edit && npx remotion render src/index.ts "NewLaunch-<slug>" ../成�
 - **落款卡的脸是完整的**。头像是方图时别抄 `NewsEnding` 的 `AbsoluteFill + clipPath` 写法
   （方图铺满 9:16 会被放大到只截中间一条，切掉额头下巴）；`NewLaunchEnding` 已改成
   「圆容器 + objectFit: cover」，做新版式照这个。
+- **风格和音乐**：配色跟档案里的 `视觉风格` 一致；开头 2 秒 BGM 淡入、结尾 2 秒淡出；人声压得住音乐。
+  不放心就量：`ffmpeg -i 成片.mp4 -af volumedetect -f null -` 看 mean，纯音乐段（片尾落款卡那 3.5 秒）
+  比人声段低 2 dB 左右是标准口径；觉得吵就 script.json 写 `"music": {"track": "<同一首>", "volume": 0.7}` 重渲。
 - 纯画面问题同步改 script.json + manifest.json 再渲（不用重配音）；文案问题才动配音。
 - 渲染快结束时改 `public/` 下的文件不会热更新进本次渲染，改完要重渲。
 
-## 4. 封面（每人一套，不是设计C）
-
-固定结构：满幅底图（跟片子主题相关、版权干净）压一层暗角 + 顶部小字（主题/栏目名）+
-主标题 2 行、每行 ≤6 字、说**观众关心的事** + 副行一组硬数字 +
-**右下角他本人抠图 + 黑色胶囊（姓名 · CEA 注册号）**——封面有脸才拦得住人，有注册号才合规。
-
-现成工程：拷 `成片/2026-08-03-serra-residences/封面/`（`index.html` + `render.cjs`，
-手写 HTML + 系统字体，playwright 装在 `remotion-edit/node_modules/`，路径已写死）：
+## 4. 封面（引擎自带，版式固定在档案里）
 
 ```bash
-cp -R 成片/2026-08-03-serra-residences/封面 成片/<新slug>/封面
-# 换底图和 agent_cutout.png（档案里的抠图），改 index.html 文字
-cd 成片/<新slug>/封面 && node render.cjs
+cd remotion-edit && bash scripts/cover-previews.sh render <slug> '{"styleId":"<风格>","kicker":"<栏目>","title":"<两行\n标题>","sub":"<硬数字>","image":"shots/<底图>","headshot":"<头像>","name":"<姓名>","tag":"<可空>"}' <档案里的封面版式>
 ```
 
-版式里两个数是调出来的别乱动：大标题每行 ≤5 字（122px 下第 6 个字会折行）、
-副行 `max-width: 560px`（不限宽会压到人像）。同一个人的封面版式定下来后就固定用，
-全号统一才认得出来；把定稿参数记进他的档案。
-
-渲染后**必须 Read 看图**：字没撞人像、没超框。出两版：1080×1920（视频号 + 视频首帧，
-拷到 `public/newlaunch/<slug>/cover.png`）、1080×1440（小红书）。
+- 四种版式 `hero / split / plain / portrait`（定义在 `remotion-edit/src/Cover.tsx`），首次让学员挑一种写进档案，之后固定用。
+- 产物直接落在 `public/newlaunch/<slug>/`：`cover.png` 1080×1920（视频首帧 + 视频号）、`cover_1440.png` 1080×1440（小红书）。
+- script.json / manifest.json 的 `coverImage` 填 `cover.png`，引擎静置 0.5 秒当首帧，默认如此。
+- 标题每行 ≤6 字（超了会折行撞图），副行一组硬数字。渲完 Read 看图：字没撞人像、没超框；有问题改 props 重渲，几秒钟。
+- 底图只用这条片里版权干净的图；头像用档案里的抠图（`headshot_cutout.png`，拷到片目录或写相对路径）。

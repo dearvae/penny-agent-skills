@@ -1,0 +1,4 @@
+interface:
+  display_name: "agent-cut"
+  short_description: "Edit talking-head and B-roll videos automatically"
+  default_prompt: "Use $agent-cut to turn my talking-head and B-roll clips into a captioned vertical video."

@@ -32,8 +32,9 @@ BREAK_PUNCT = "，。！？；：、,.!?;:…—\n"
 # 只是丢掉、不断句的符号
 DROP_PUNCT = "\"“”‘’()（）《》【】''"
 # 一行字幕的目标字数 / 允许不拆的上限（竖屏 1080 宽、字号 58-76）
-TARGET_LINE_CHARS = 13
-SOFT_MAX_CHARS = 16
+# 2026-09-16 Penny：字幕永远一行，放不下就拆成两条，不折行。大字幕（74px）一行约 12 字，所以上限压到 14。
+TARGET_LINE_CHARS = 12
+SOFT_MAX_CHARS = 14
 
 VOICES = {
     "xiaoxiao": "zh-CN-XiaoxiaoNeural",  # 女声，暖，News/Novel —— 默认，最像人

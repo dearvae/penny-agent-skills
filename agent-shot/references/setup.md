@@ -32,8 +32,9 @@ python3 -m venv .venv && ./.venv/bin/pip install playwright && ./.venv/bin/playw
 （`f5-tts-mlx` 是本地配音引擎，Apple Silicon 专用；他要是只走 MiniMax 云端可以不装，
 但装上就多一条不用注册账号的路线，建议都装。Windows 跳过。）
 
-- skill 本体用 `npx skills add dearvae/penny-agent-skills -g` 装（`references/profiles/`
-  在分发仓库里本来就是空的，不会带到别人档案）。
+- skill 本体：`npx skills add dearvae/penny-agent-skills -a codex --skill agent-shot --skill agent-cut --skill pg-cobroke --skill propnex-forms`
+  （学员用 ChatGPT 桌面版的 Codex，装到 `~/.agents/skills/`；用 Claude Code 的把 `-a codex` 换成 `-a claude-code`。
+  `references/profiles/` 在分发仓库里本来就是空的，不会带到别人档案）。
 
 ## 3. MiniMax 账号（可选——只走本地 F5 配音的话可以先跳过）
 
@@ -64,7 +65,8 @@ cd remotion-edit && node scripts/build-video.mjs scripts/demo.md && \
 npx remotion render Demo out/demo.mp4 --log=error
 ```
 
-   出得来 `out/demo.mp4`（约 2 秒）就算通。
+   出得来 `out/demo.mp4`（约 2 秒）就算通。再跑 `bash scripts/style-previews.sh --sheet`，
+   出得来 `out/style-previews/对比图.png`（建档挑风格要用它；引擎自带 10 首 BGM 在 `public/music/bgm/`）。
 2. **TTS 通**：拿范例 script.json 跑一次他选的引擎——`tts_clone.py`（本地）或
    `tts_minimax.py`（云端，记得先备份 `newsIndex.ts`，见 pipeline.md 坑1）
 3. **封面通**：拷一份封面工程 `node render.cjs`，出得来 png

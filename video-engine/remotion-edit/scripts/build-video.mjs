@@ -179,12 +179,13 @@ const takeTiming = (value) => {
 };
 
 /**
- * 素材写法： NAME[@入点][+时长 | -出点] [x倍速] [z缩放] [still]
+ * 素材写法： NAME[@入点][+时长 | -出点] [x倍速] [z缩放] [still] [p打点秒[/倍数]]
  *   e_fridge            整段都用它
  *   e_fridge@2          从源文件 2s 开始
  *   e_fridge@2-6        用源文件的 2s–6s（画面上占 4s）
  *   e_fridge@2+4        同上，另一种写法
  *   b_1525_scan x1.5    1.5 倍速
+ *   e_fridge@2+6 p3.2   画面开始后 3.2s 硬切放大（zoom punch），默认 ×1.2；p3.2/1.3 = ×1.3
  */
 const parseClip = (token) => {
   const parts = token.trim().split(/\s+/);
@@ -217,6 +218,12 @@ const parseClip = (token) => {
     if (/^x\d/.test(mod)) clip.rate = Number(mod.slice(1));
     else if (/^z\d/.test(mod)) clip.zoom = Number(mod.slice(1));
     else if (mod === "still") clip.still = true;
+    else if (/^p\d/.test(mod)) {
+      const pm = mod.slice(1).match(/^(\d+(?:\.\d+)?)(?:\/(\d+(?:\.\d+)?))?$/);
+      if (!pm) die(`看不懂的 zoom punch 写法：${mod}（应为 p3.2 或 p3.2/1.25）`);
+      clip.punch = { at: Number(pm[1]) };
+      if (pm[2]) clip.punch.scale = Number(pm[2]);
+    }
     else warn(`忽略看不懂的修饰符「${mod}」（来自 ${token}）`);
   }
   return clip;
@@ -403,6 +410,7 @@ const buildSegments = (sections, fm, dirs) => {
         const zoom = clip.zoom ?? fm.zoom;
         if (zoom !== undefined) shot.zoom = Number(zoom);
         if (clip.still) shot.still = true;
+        if (clip.punch) shot.punch = clip.punch;
         shots.push(shot);
       }
     }
@@ -420,10 +428,11 @@ const buildSegments = (sections, fm, dirs) => {
       }
     }
     for (const raw of many(f, "person")) {
-      const clip = parseClip(raw === "true" || raw === "" ? "self" : raw);
+      const clip = parseClip(raw === "true" || raw === "" ? "self" : raw.replace(/^true(?=\s|$)/, "self"));
       const shot = { kind: "person" };
       if (clip.dur !== undefined) shot.dur = clip.dur;
       if (clip.zoom !== undefined) shot.zoom = clip.zoom;
+      if (clip.punch) shot.punch = clip.punch;
       shots.push(shot);
     }
     if (f.person && f.person.length === 0) shots.push({ kind: "person" });

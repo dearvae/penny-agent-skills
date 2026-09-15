@@ -116,11 +116,14 @@ broll:  e_fridge@2-6                用源文件的 2s–6s（画面上占 4 秒
 broll:  e_fridge@2+4                同上，另一种写法
 broll:  b_1544_scan x1.5            1.5 倍速
 broll:  b_1545_window@9 z1.12 still 缩放 1.12、关掉缓推
+broll:  e_fridge@2+6 p3.2            zoom punch：画面开始后 3.2s 硬切放大 ×1.2（强调用，配 sfx: @3.2 pop）
+broll:  e_fridge@2+6 p3.2/1.3        同上，放大 ×1.3；person: true p4.1 也可以
 broll:  a@0+3, b@1.5+4, c@0         一段里切三刀，逗号分隔；最后一个铺到段尾
 
 photo:  pool_parcriveria            静图 + Ken Burns 缓推（public/photos/、photos/stock/ 都会找）
 person: true                        口播真人全屏（画面就用 vo 那个 mp4，自动对好口型）
 person: +3.5                        真人只出镜 3.5 秒，剩下交给下一个镜头
+person: true p4.1                   口播第 4.1 秒硬切放大（zoom punch），强调那句话
 title:  两个前提                     全屏大标题字卡
 stat:   4.54% | 毛回报率 | up        数字大卡（数字会滚动，第三段是 up / down / flat）
 chat:   user | 帮我出一份续约协议    对话录屏模拟（AI 工具 demo 用）。角色 user/claude/tool；
