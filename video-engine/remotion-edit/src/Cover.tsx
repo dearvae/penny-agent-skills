@@ -195,7 +195,7 @@ const Layouts: Record<CoverLayout, React.FC<CoverProps & { W: number; H: number 
 };
 
 export const Cover: React.FC<CoverProps & { W: number; H: number }> = (props) => {
-  const st = (props.styleId && ALL_STYLES[props.styleId]) || STYLE_PRESETS.classic;
+  const st = (props.styleId && ALL_STYLES[props.styleId]) || STYLE_PRESETS.apple;
   const L = Layouts[props.layout] || Layouts.hero;
   return (
     <StyleCtx.Provider value={st}>

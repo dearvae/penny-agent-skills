@@ -30,7 +30,7 @@ echo "同步完成。检查改动：git diff --stat"
 RE=../remotion-edit
 for f in AutoVideo.tsx Ending.tsx ProgressCheck.tsx theme.ts sfx.ts WordCaptions.tsx DataAnim.tsx \
          NewsVideo.tsx NewsEnding.tsx NewLaunchVideo.tsx NewLaunchEnding.tsx index.css index.ts \
-         styles.ts StylePreview.tsx Cover.tsx NewsVisualsP1.tsx newsMediaPlan.ts; do
+         styles.ts StyleKit.tsx StylePreview.tsx Cover.tsx NewsVisualsP1.tsx newsMediaPlan.ts; do
   cp "$RE/src/$f" video-engine/remotion-edit/src/
 done
 rsync -a --exclude='*.md' --exclude='vo/' --exclude='__pycache__' --exclude='forms_demo*' \

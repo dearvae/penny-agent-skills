@@ -15,6 +15,8 @@ import type { Caption } from "@remotion/captions";
 import { NewLaunchEnding, NEWLAUNCH_ENDING_FRAMES, type Signoff } from "./NewLaunchEnding";
 import { theme } from "./theme";
 import { StyleCtx, resolveMusic, resolveStyle, useStyle, type MusicSpec } from "./styles";
+import { CaptionLine, StatVisual, BulletsVisual, TitleVisual, TopBar, ProgressBar, Decor } from "./StyleKit";
+export { CaptionLine, StatVisual, BulletsVisual, TitleVisual, TopBar, ProgressBar, Decor };
 
 /* ────────────────────────────────────────────────────────────
    数据结构 —— 客户中介「新盘介绍」线（newlaunch-shot skill）
@@ -77,64 +79,6 @@ const asset = (slug: string, p: string) => staticFile(`newlaunch/${slug}/${p}`);
    ──────────────────────────────────────────────────────────── */
 
 // 拆分用带 g，判断用不带 g —— 带 g 的 .test() 有 lastIndex 状态，会漏判
-const NUM_SPLIT = /([0-9]+(?:\.[0-9]+)?%?)/g;
-const IS_NUM = /^[0-9]+(?:\.[0-9]+)?%?$/;
-
-export const CaptionLine: React.FC<{ text: string; big: boolean }> = ({ text, big }) => {
-  const frame = useCurrentFrame();
-  const st = useStyle();
-  const scale = interpolate(frame, [0, 4], [0.93, 1], { extrapolateRight: "clamp" });
-  const opacity = interpolate(frame, [0, 3], [0, 1], { extrapolateRight: "clamp" });
-  const parts = text.split(NUM_SPLIT).filter(Boolean);
-  const boxed = Boolean(st.captionBox);
-  // 字幕永远一行：按字数把字号缩到能放进 960px（含字间距 2），不折行。正常情况断行规则已保证 ≤14 字，这里只是兜底。
-  const base = big ? 74 : 58;
-  const chars = Array.from(text).length;
-  const fontSize = Math.min(base, Math.floor((960 - (boxed ? 56 : 0)) / Math.max(chars, 1)) - 2);
-
-  return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center" }}>
-      <div
-        style={{
-          marginBottom: big ? 400 : 320,
-          transform: `scale(${scale})`,
-          opacity,
-          fontFamily: st.font,
-          fontSize,
-          fontWeight: 900,
-          color: st.captionColor,
-          letterSpacing: 2,
-          textAlign: "center",
-          whiteSpace: "nowrap",
-          lineHeight: 1.25,
-          // 带底框的风格（warm / bold）靠底框保证在浅色画面上也看得清，不用描边
-          ...(boxed
-            ? {
-                background: st.captionBox,
-                padding: "12px 28px",
-                borderRadius: Math.min(st.radius, 22),
-                boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
-              }
-            : {
-                textShadow:
-                  "0 2px 8px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.5), 2px 2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9)",
-              }),
-        }}
-      >
-        {parts.map((p, i) =>
-          IS_NUM.test(p) ? (
-            <span key={i} style={{ color: st.captionNumber }}>
-              {p}
-            </span>
-          ) : (
-            <span key={i}>{p}</span>
-          ),
-        )}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
 const NLCaptions: React.FC<{ path: string; big?: boolean }> = ({ path, big = false }) => {
   const { fps } = useVideoConfig();
   const [captions, setCaptions] = useState<Caption[] | null>(null);
@@ -374,196 +318,6 @@ const PhotoVisual: React.FC<{
   );
 };
 
-export const StatVisual: React.FC<{ v: Extract<NLVisual, { type: "stat" }> }> = ({ v }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const st = useStyle();
-  const s = spring({ frame, fps, config: { damping: 12, mass: 0.7 } });
-  const TREND = {
-    up: { arrow: "▲", color: "#E8442E" },
-    down: { arrow: "▼", color: "#2FA36B" },
-    flat: { arrow: "", color: st.highlight },
-  };
-  const t = TREND[v.trend ?? "flat"];
-  const pulse = 1 + 0.012 * Math.sin((frame / fps) * Math.PI * 1.4);
-
-  return (
-    <AbsoluteFill
-      style={{
-        background: st.bgSoft,
-        alignItems: "center",
-        justifyContent: "flex-start",
-        fontFamily: st.font,
-      }}
-    >
-      <div
-        style={{
-          marginTop: 590,
-          textAlign: "center",
-          transform: `scale(${(0.82 + 0.18 * s) * pulse}) translateY(${(1 - s) * 50}px)`,
-          opacity: Math.min(1, s * 1.5),
-        }}
-      >
-        <div
-          style={{
-            fontSize: 168,
-            fontWeight: 900,
-            color: st.text,
-            letterSpacing: -2,
-            lineHeight: 1,
-            textShadow: st.captionBox ? "none" : "0 8px 40px rgba(0,0,0,0.5)",
-          }}
-        >
-          {v.value}
-          {t.arrow ? (
-            <span style={{ fontSize: 92, color: t.color, marginLeft: 18 }}>{t.arrow}</span>
-          ) : null}
-        </div>
-        <div
-          style={{
-            marginTop: 36,
-            fontSize: 42,
-            fontWeight: 700,
-            color: st.textMuted,
-            letterSpacing: 3,
-          }}
-        >
-          {v.label}
-        </div>
-        <div
-          style={{
-            margin: "40px auto 0",
-            width: interpolate(s, [0, 1], [0, 420]),
-            height: 8,
-            borderRadius: 999,
-            background: t.color,
-          }}
-        />
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-export const BulletsVisual: React.FC<{ v: Extract<NLVisual, { type: "bullets" }> }> = ({ v }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const st = useStyle();
-  return (
-    <AbsoluteFill
-      style={{
-        background: st.bgSoft,
-        alignItems: "center",
-        justifyContent: "flex-start",
-        fontFamily: st.font,
-      }}
-    >
-      <div style={{ marginTop: 520, width: 880 }}>
-        <div
-          style={{
-            fontSize: 46,
-            fontWeight: 900,
-            color: st.highlight,
-            letterSpacing: 6,
-            marginBottom: 46,
-            textAlign: "center",
-          }}
-        >
-          {v.title}
-        </div>
-        {v.items.map((item, i) => {
-          const s = spring({
-            frame: Math.max(0, frame - (0.3 + i * 0.55) * fps),
-            fps,
-            config: { damping: 14, mass: 0.7 },
-          });
-          return (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 26,
-                background: st.surface,
-                border: `1px solid ${st.border}`,
-                borderRadius: Math.min(st.radius, 24),
-                padding: "30px 34px",
-                marginBottom: 24,
-                opacity: Math.min(1, s * 1.5),
-                transform: `translateX(${(1 - s) * 60}px)`,
-              }}
-            >
-              <div
-                style={{
-                  minWidth: 58,
-                  height: 58,
-                  borderRadius: 999,
-                  background: st.accent,
-                  color: "#fff",
-                  fontSize: 32,
-                  fontWeight: 900,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {i + 1}
-              </div>
-              <div style={{ fontSize: 44, fontWeight: 700, color: st.text, lineHeight: 1.3 }}>
-                {item}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-export const TitleVisual: React.FC<{ v: Extract<NLVisual, { type: "title" }> }> = ({ v }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const st = useStyle();
-  const s = spring({ frame, fps, config: { damping: 13, mass: 0.6 } });
-  // 按最长行自适应字号：可用宽约 1000px，字宽 = fontSize + letterSpacing(12)
-  const maxChars = Math.max(...v.text.split("\n").map((l) => l.length), 1);
-  const fontSize = Math.min(130, Math.floor(1000 / maxChars) - 12);
-  return (
-    <AbsoluteFill
-      style={{
-        background: st.bg,
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: st.font,
-      }}
-    >
-      <div
-        style={{
-          fontSize,
-          fontWeight: 900,
-          color: st.text,
-          letterSpacing: 12,
-          lineHeight: 1.3,
-          whiteSpace: "pre-line",
-          transform: `scale(${0.86 + 0.14 * s})`,
-          opacity: Math.min(1, s * 1.6),
-          textAlign: "center",
-        }}
-      >
-        {v.text}
-      </div>
-      <div
-        style={{
-          marginTop: 34,
-          width: interpolate(s, [0, 1], [0, 300]),
-          height: 10,
-          borderRadius: 999,
-          background: st.accent,
-        }}
-      />
-    </AbsoluteFill>
-  );
-};
-
 const VisualLayer: React.FC<{ v: NLVisual; slug: string; frames: number }> = ({
   v,
   slug,
@@ -592,73 +346,6 @@ const VisualLayer: React.FC<{ v: NLVisual; slug: string; frames: number }> = ({
 /* ────────────────────────────────────────────────────────────
    常驻元素：顶栏 / 进度条 / 印章
    ──────────────────────────────────────────────────────────── */
-
-export const TopBar: React.FC<{ kicker: string; sub?: string }> = ({ kicker, sub }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const st = useStyle();
-  const s = spring({ frame, fps, config: { damping: 16, mass: 0.6 } });
-  const blink = 0.55 + 0.45 * Math.sin((frame / fps) * Math.PI * 2.2);
-  return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start" }}>
-      <div
-        style={{
-          marginTop: 84,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          background: st.pillBg,
-          border: `1px solid ${st.border}`,
-          backdropFilter: "blur(12px)",
-          borderRadius: st.radius,
-          padding: "14px 30px 14px 22px",
-          fontFamily: st.font,
-          opacity: Math.min(1, s * 1.4),
-          transform: `translateY(${(1 - s) * -30}px)`,
-        }}
-      >
-        <div
-          style={{
-            width: 16,
-            height: 16,
-            borderRadius: 999,
-            background: st.accent,
-            opacity: blink,
-            boxShadow: `0 0 16px ${st.accent}`,
-          }}
-        />
-        <div style={{ fontSize: 32, fontWeight: 900, color: st.pillText, letterSpacing: 4 }}>
-          {kicker}
-        </div>
-        {sub ? (
-          <div style={{ fontSize: 28, fontWeight: 600, color: st.pillText, opacity: 0.55 }}>
-            {sub}
-          </div>
-        ) : null}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-export const ProgressBar: React.FC<{ total: number }> = ({ total }) => {
-  const frame = useCurrentFrame();
-  const st = useStyle();
-  const pct = interpolate(frame, [0, total], [0, 100], { extrapolateRight: "clamp" });
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 8,
-        background: st.border,
-      }}
-    >
-      <div style={{ width: `${pct}%`, height: "100%", background: st.highlight }} />
-    </div>
-  );
-};
 
 const Stamp: React.FC<{ text: string }> = ({ text }) => {
   const frame = useCurrentFrame();
@@ -760,6 +447,9 @@ export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ mani
         </Sequence>
       ))}
 
+      <Sequence durationInFrames={cursor} name="decor">
+        <Decor kicker={kicker} />
+      </Sequence>
       <Sequence durationInFrames={cursor} name="topbar">
         <TopBar kicker={kicker} sub={sub} />
         <ProgressBar total={cursor} />

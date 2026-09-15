@@ -4,6 +4,7 @@ import { Audio } from "@remotion/media";
 import {
   BulletsVisual,
   CaptionLine,
+  Decor,
   ProgressBar,
   StatVisual,
   TitleVisual,
@@ -51,6 +52,7 @@ const Scene: React.FC<{ visual: React.ReactNode; caption: string; frames: number
 }) => (
   <>
     {visual}
+    <Decor kicker={SAMPLE.kicker} />
     <CaptionLine text={caption} big={Boolean(big)} />
     <TopBar kicker={SAMPLE.kicker} sub={SAMPLE.sub} />
     <ProgressBar total={frames} />
@@ -59,7 +61,7 @@ const Scene: React.FC<{ visual: React.ReactNode; caption: string; frames: number
 
 export const StylePreview: React.FC<{ styleId: StyleId }> = ({ styleId }) => {
   const { fps } = useVideoConfig();
-  const st = ALL_STYLES[styleId] ?? STYLE_PRESETS.classic;
+  const st = ALL_STYLES[styleId] ?? STYLE_PRESETS.apple;
   const music = resolveMusic(undefined, st);
   const scene = SCENE_SEC * fps;
   const body = scene * 3;
@@ -139,7 +141,7 @@ const Mini: React.FC<{ at: number; children: React.ReactNode }> = ({ at, childre
 );
 
 export const StyleSheet: React.FC = () => (
-  <AbsoluteFill style={{ background: "#ECE8E0", flexDirection: "row", fontFamily: STYLE_PRESETS.classic.font }}>
+  <AbsoluteFill style={{ background: "#ECE8E0", flexDirection: "row", fontFamily: STYLE_PRESETS.apple.font }}>
     {STYLE_IDS.map((id) => {
       const st = ALL_STYLES[id];
       return (
@@ -198,7 +200,7 @@ export const EndingPreview: React.FC<{ layout: EndingLayout; styleId?: string; s
   styleId,
   signoff,
 }) => {
-  const st = (styleId && ALL_STYLES[styleId]) || STYLE_PRESETS.classic;
+  const st = (styleId && ALL_STYLES[styleId]) || STYLE_PRESETS.apple;
   const so: Signoff = { ...SAMPLE.signoff, ...(signoff || {}), layout };
   return (
     <StyleCtx.Provider value={st}>

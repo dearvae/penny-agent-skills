@@ -17,7 +17,7 @@ for (let i = 1; i < args.length; i++) {
   const a = args[i];
   if (a.startsWith("--")) { const k = a.slice(2); const v = args[i + 1]; if (!v || v.startsWith("--")) opt[k] = true; else { opt[k] = v; i++; } }
 }
-if (["classic", "warm", "fresh", "luxe", "bold"].includes(id)) { console.error("内置风格 id 不能覆盖，换个 id"); process.exit(1); }
+if (["douyin", "fresh", "apple", "news", "editorial", "classic", "warm", "luxe", "bold"].includes(id)) { console.error("内置风格 id 不能覆盖，换个 id"); process.exit(1); }
 
 // ── 颜色工具 ──
 const hex = (r, g, b) => "#" + [r, g, b].map((x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0")).join("").toUpperCase();
@@ -71,6 +71,7 @@ const radius = opt.radius !== undefined ? Number(opt.radius) : 999;
 const soft = light ? `linear-gradient(170deg, ${hex(...mix(bg, [255, 255, 255], 0.4))} 0%, ${hex(...mix(bg, [0, 0, 0], 0.06))} 100%)`
                    : `radial-gradient(circle at 50% 40%, ${hex(...mix(bg, [255, 255, 255], 0.12))} 0%, ${hex(...bg)} 62%)`;
 const preset = {
+  like: opt.like || (light ? "fresh" : "apple"), // 设计语言（字体 / 字幕样式 / 数字卡 / 动画）从哪套复制：douyin / fresh / apple / news / editorial；颜色是自己的
   label: opt.label || id,
   desc: opt.desc || (opt["from-image"] ? "按参考图取色生成" : "自定义"),
   bgm: opt.bgm || (light ? "10_guitar_afternoon" : "09_light_relaxed"),

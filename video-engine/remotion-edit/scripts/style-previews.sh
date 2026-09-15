@@ -9,7 +9,7 @@ mkdir -p out/style-previews
 npx remotion still StyleSheet out/style-previews/对比图.png --log=error
 echo "✅ out/style-previews/对比图.png"
 [ "$1" = "--sheet" ] && exit 0
-for s in classic warm fresh luxe bold; do
+for s in douyin fresh apple news editorial; do
   npx remotion render "StylePreview-$s" "out/style-previews/$s.mp4" --log=error
   echo "✅ out/style-previews/$s.mp4"
 done

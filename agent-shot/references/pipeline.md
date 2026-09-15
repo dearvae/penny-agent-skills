@@ -26,7 +26,7 @@
   新闻/算账/科普片写「有问题，找我聊」这类）。`cea` / `agency` **他给了才填，没给留空**，引擎不会渲出空行；
   提醒（正式营销物料按规矩要挂）是交付时的事，不要自动加上去，也不要因为没有就停下来问。
 - `signoff.layout`：档案里的片尾版式（`card` / `namecard` / `photo`，见 onboarding.md 第 6 节），每条片固定带；顶层 `"ending": false` 只在用户明确说不要片尾时写。
-- 顶层 `style`：档案里的视觉风格 id（内置 `classic` / `warm` / `fresh` / `luxe` / `bold` 定义在 `remotion-edit/src/styles.ts`；学员自定义的在 `src/customStyles.json`，用 `scripts/add-style.mjs` 生成，见 onboarding.md 第 5 节），不写 = classic。
+- 顶层 `style`：档案里的视觉风格 id（内置 `douyin` / `fresh` / `apple` / `news` / `editorial` 定义在 `remotion-edit/src/styles.ts`，旧的 classic / warm / luxe / bold 仍可用；学员自定义的在 `src/customStyles.json`，用 `scripts/add-style.mjs` 生成，见 onboarding.md 第 5 节），不写 = apple。
 - 顶层 `music`：配乐。不写 = 跟风格走的默认曲；写曲库 id（下表）换一首；`false` = 不铺音乐；
   `{"track": "09_light_relaxed", "volume": 0.7}` = 换曲并把音量压到标准的 0.7 倍。
   每首的音量已按「音乐 mean ≈ 人声 mean − 2 dB」校准，换曲不用重调。
@@ -44,7 +44,7 @@
 | `09_light_relaxed` | 轻快放松 | 新闻快讯、算账、通用垫乐（classic 默认） |
 | `10_guitar_afternoon` | 纯音乐吉他 | 舒缓、温和科普（warm 默认） |
 
-  风格默认曲：classic→09、warm→10、fresh→04、luxe→05、bold→03。曲子来自剪映曲库，
+  风格默认曲：douyin→03、fresh→10、apple→09、news→01、editorial→05。曲子来自剪映曲库，
   各平台商用授权学员自己确认（`public/music/bgm/README.md` 有说明），交付物料里带一句。
   **每条片都主动按内容挑一首**（选法见 SKILL.md 第 4 节），不要每条都用默认曲。
 
