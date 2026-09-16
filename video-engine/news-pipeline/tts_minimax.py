@@ -20,8 +20,8 @@
 
 前置：
   - news-pipeline/.env.minimax 里写 MINIMAX_API_KEY=sk-api-...（权限 600）
-  - 音色已在 MiniMax 克隆好。当前用的是 PennyVoice2026
-    （克隆源：素材库/09_口播成品/视频A/A3_押金不是解约金.mp4 的 25.5 秒人声）
+  - 音色已在 MiniMax 克隆好，voice id 写进 .env.minimax 的 MINIMAX_VOICE_ID
+    （没有默认音色：这一行缺了就报错退出，模板里不留任何真人的音色 id）
 
 用法:
     python tts_minimax.py --script .../script.json
@@ -73,9 +73,11 @@ def _env_var(name: str) -> str | None:
     return None
 
 
-# 音色优先读 .env.minimax 里的 MINIMAX_VOICE_ID（学员/客户机器建档时写入自己的），
-# 没写才落回 Penny 自己的
-DEFAULT_VOICE_ID = _env_var("MINIMAX_VOICE_ID") or "PennyVoice2026"
+# 音色只从 MINIMAX_VOICE_ID 读（环境变量或 .env.minimax），**没有默认值**。
+# 不留硬编码音色：默认值会让「在别人账号上跑会报错」这条安全假设失效——
+# 用自己的 key 替别人出片时不报错，会静默渲出一条挂着对方姓名和 CEA 号、
+# 却是另一个真人声音的成片。缺了就报错退出，见 _require_voice_id()。
+DEFAULT_VOICE_ID = _env_var("MINIMAX_VOICE_ID")
 DEFAULT_MODEL = "speech-2.8-turbo"
 FALLBACK_MODEL = "speech-2.8-hd"     # CER 偏高时换这个重试
 DEFAULT_EMOTION = "happy"            # 2026-07-31 六版对比后选定：比默认更有劲
@@ -120,6 +122,20 @@ def load_key() -> str:
 # ────────────────────────────────────────────────────────────────
 # MiniMax 合成
 # ────────────────────────────────────────────────────────────────
+def _require_voice_id(voice_id: str | None) -> str:
+    """音色必须显式给。没有默认音色——不留任何真人的克隆音色 id 当兜底。"""
+    if voice_id and voice_id.strip():
+        return voice_id.strip()
+    raise SystemExit(
+        "MINIMAX_VOICE_ID 没设，停。\n"
+        f"在 {ENV_FILE} 里写一行 MINIMAX_VOICE_ID=<你自己克隆好的音色id>"
+        "（或 --voice-id 传，或写进 script.json 的 voiceId）。\n"
+        "没克隆过就先去 MiniMax 建档克隆你自己的音色再来。\n"
+        "这里故意没有默认音色：默认音色会让你在自己不知道的情况下，"
+        "渲出一条挂着别人姓名和 CEA 号、却是另一个人声音的成片。"
+    )
+
+
 def synth(key: str, text: str, dest: Path, *, voice_id: str, model: str,
           emotion: str | None, speed: float, retries: int = 3) -> dict:
     """调 t2a_v2 生成一段，落成 mp3。返回 extra_info。"""
@@ -193,7 +209,8 @@ def run(args) -> int:
     vo_dir.mkdir(parents=True, exist_ok=True)
     cap_dir.mkdir(parents=True, exist_ok=True)
 
-    voice_id = args.voice_id or script.get("voiceId") or DEFAULT_VOICE_ID
+    voice_id = _require_voice_id(
+        args.voice_id or script.get("voiceId") or DEFAULT_VOICE_ID)
     emotion = None if args.emotion == "none" else args.emotion
 
     only = set(args.only.split(",")) if args.only else None
@@ -305,7 +322,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--script", required=True)
     ap.add_argument("--voice-id", dest="voice_id",
-                    help=f"MiniMax 音色 id（默认 {DEFAULT_VOICE_ID}）")
+                    help="MiniMax 音色 id（默认读 .env.minimax 的 MINIMAX_VOICE_ID，没有默认值）")
     ap.add_argument("--model", default=DEFAULT_MODEL,
                     help=f"默认 {DEFAULT_MODEL}；CER 高时自动回退 {FALLBACK_MODEL}")
     ap.add_argument("--emotion", default=DEFAULT_EMOTION,

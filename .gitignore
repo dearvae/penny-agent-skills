@@ -1,7 +1,14 @@
 .DS_Store
 *.env*
+# 但示例文件（只有变量名和注释、没有值）要进仓库，学员要照着建自己的
+!*.env*.example
+!.env.*.example
 
 # 客户/学员的脸、声音、档案，永远不进仓库
 **/references/profiles/*
 !**/references/profiles/README.md
 **/references/clients/
+
+# python 编译缓存
+__pycache__/
+*.pyc

@@ -5,6 +5,11 @@ set -e
 cd "$(dirname "$0")"
 SRC="../.claude/skills"
 
+# 注意：有几个 skill 是**直接在这个仓库里写的**，本机 ~/.claude/skills 下没有对应源目录
+# （listing-desc、follow-up、declutter、stamp-calc 这类）。它们不进下面的 rsync——
+# 给它们加 rsync 行会因为源目录不存在直接让脚本 set -e 退出，
+# 更糟的是 --delete 会把仓库里的正本删掉。改这些 skill 就直接改仓库里的文件。
+
 rsync -a --delete --exclude='references/profiles/' --exclude='.DS_Store' \
   "$SRC/agent-shot/" agent-shot/
 mkdir -p agent-shot/references/profiles
