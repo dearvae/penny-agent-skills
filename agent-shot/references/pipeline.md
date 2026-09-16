@@ -123,6 +123,17 @@ for k in ('signoff','coverImage','style','music'): m[k]=s.get(k)
   刺耳的是说话/静音之间 47 dB 的落差。模板已铺 0.45 的连续粉噪垫底把地板托起来，别动它，
   也别写 0 关掉。垫底文件 `remotion-edit/public/music/roomtone_bed.wav`，丢了按文件同目录的命令重做。
 
+### 2d. 数字人段（可选，只在他配了 `.env.heygen` 时）
+
+script.json 里开头、结尾那段写 `"avatar": true`，TTS 跑完后：
+
+```bash
+cd news-pipeline && ./.venv-tts/bin/python heygen_avatar.py --script ../remotion-edit/public/newlaunch/<slug>/script.json
+```
+
+生成口型对准克隆声的数字人片到 `<slug>/shots/avatar_<id>.mp4`，并把 manifest 里这两段的 visual 改成全屏 broll。没配 `.env.heygen` 脚本会直接退出，片子照常渲。
+key、avatar id 只存在他电脑的 `.env.heygen`，**任何文档、脚本、档案里都不写**。接法见 `onboarding.md` 第 8 节。
+
 ## 3. 注册 + 渲染 + 自查
 
 `newlaunchIndex.ts` 加一条（import manifest + 数组项），然后：

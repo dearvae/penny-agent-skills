@@ -201,7 +201,29 @@ bash scripts/cover-previews.sh render <slug> '<同上 props>' <版式id>
 出 `cover.png`（1080×1920，视频首帧 + 视频号）和 `cover_1440.png`（小红书）。script.json 里 `"coverImage": "cover.png"`，
 引擎会把它静置 0.5 秒当首帧，**默认就是这样，不用问**。用户明确说「这条封面换个版式」才换，说「不要首帧」才把 `coverImage` 留空。
 
-## 8. 立档案
+## 8. 数字人（可选，HeyGen，学员自己的账号）
+
+不配也能出片。配了之后，开头和结尾那两段用他的数字人出镜口播，中间还是画面。**只能用他本人的形象；key 和 id 都在他电脑上，不进仓库、不发群。**
+
+1. 他自己注册 HeyGen（heygen.com），订一个带 API 权限的套餐；网页 Settings → API 复制 key
+2. 做数字人：照片数字人（Photo Avatar，上传一张正面半身照，几分钟）或视频数字人（Video Avatar，按 HeyGen 要求录 2 分钟视频）。照片数字人用建档那张形象照就行
+3. 让他把 key 填进 `news-pipeline/.env.heygen`（照 `.env.heygen.example`，`chmod 600`），然后跑 `--list` 拿 id：
+
+```bash
+cd news-pipeline && ./.venv-tts/bin/python heygen_avatar.py --list
+```
+
+4. 把 id 和类型写进 `.env.heygen`；`HEYGEN_BG` 写他视觉风格的底色。档案加一行 `数字人 = 已配（类型）/ 未配`
+5. 之后每条片：script.json 里给开头和结尾那段加 `"avatar": true`，TTS 跑完、渲染前跑一次：
+
+```bash
+cd news-pipeline && ./.venv-tts/bin/python heygen_avatar.py --script ../remotion-edit/public/newlaunch/<slug>/script.json
+```
+
+   它把这两段的配音传给 HeyGen 生成口型对准的数字人片，下载后自动写进 manifest（这段画面换成全屏数字人），再渲染。一段一般 1–3 分钟出片，按 HeyGen 额度计费，交付时提醒一句用了多少。
+6. 卡点：401 = key 不对或套餐没 API 权限；提示 credit = 额度不够；数字人嘴型对不上 = 音频里有长静音，让 TTS 重出那段。
+
+## 9. 立档案
 
 写 `references/profiles/<代号>/profile.md`，模板：
 
@@ -218,6 +240,7 @@ bash scripts/cover-previews.sh render <slug> '<同上 props>' <版式id>
 | 默认 BGM | 跟风格走 / 曲库 id |
 | 片尾版式 / 行动句 | card / namecard / photo；行动句原文 |
 | 封面版式 | hero / split / plain / portrait |
+| 数字人 | 未配 / 已配（talking_photo 或 avatar；key 和 id 在他的 .env.heygen 里，档案不抄） |
 | 联系方式 | |
 | MiniMax 音色 ID | |
 | 音色参数 | --emotion <x> --speed 1.0（为什么选这个 emotion） |

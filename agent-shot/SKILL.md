@@ -18,7 +18,7 @@ description: 中介通用出片（可分发给学员/客户装机使用）：把
 | 必须 | 克隆声（二选一）：MiniMax 云端 voice_id 写在 `news-pipeline/.env.minimax`（key 以 `sk-api-` 开头），或本地 F5 参考音 `ref.wav` + `ref.txt` | 档案「音色 ID」一栏有值；合成一句测试能出声 |
 | 必须 | 档案：上屏姓名、形象照、视觉风格 | `references/profiles/<代号>/profile.md` 存在且这三项不为空 |
 | 可选 | CEA 注册号 + 经纪行、联系方式 | 没有就落款不挂，不追问 |
-| 可选 | 数字人（HeyGen，学员自己的账号和 API key） | 没配就纯画面 + 克隆声出片；配了才在开头结尾加数字人段 |
+| 可选 | 数字人（HeyGen，学员自己的账号和 API key，配在他电脑的 `news-pipeline/.env.heygen`） | 没配就纯画面 + 克隆声出片；配了才在开头结尾加数字人段（`references/onboarding.md` 第 8 节、`pipeline.md` 2d） |
 | 可选 | 学员自己加的 BGM | 没有就用内置 10 首 |
 
 ## 发布平台（出片前先问，按平台改片子）
