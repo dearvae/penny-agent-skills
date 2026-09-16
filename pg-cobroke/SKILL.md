@@ -1,6 +1,6 @@
 ---
 name: pg-cobroke
-description: PropertyGuru 找盘 + WhatsApp 联系挂盘中介的完整流程。用户给出买家条件（地段/MRT、房型、预算、楼龄、自住或投资），控制浏览器搜 PropertyGuru、去重、抓中介号码，返回房源表让用户勾选，然后逐条发 WhatsApp 询价（首次强制手动发送，确认后才问是否开自动）。条件模糊（没有地铁站/项目、没有面积下限、没有预算上下限）先追问再搜；搜前先看结果总数，超过 400 套先不搜、提示用户收窄。用户说「把 1、3、5 做成给客户看的图片 / 客户版」时，抓这几套的详情和照片，做成本地 HTML 房源卡并截图成图片（不发布、不含任何中介信息）。首次写文案前先问他平时怎么给中介发消息（买盘、租盘各问一次），存进「我的档案/约盘口气.md」，以后按他的口气写并从他的修改里继续学。触发词：「帮我在 propertyguru 搜」「做成客户版」「给客户看的图片」「房源卡」「找 X 房 X 万以内的盘」「联系挂盘中介」「cobroke」「约盘」「帮客户扫盘」。
+description: PropertyGuru 找盘 + WhatsApp 联系挂盘中介的完整流程。用户给出买家条件（地段/MRT、房型、预算、楼龄、自住或投资），控制浏览器搜 PropertyGuru、去重、抓中介号码，返回房源表让用户勾选，然后逐条发 WhatsApp 询价（首次强制手动发送，确认后才问是否开自动）。条件模糊（没有地铁站/项目、没有面积下限、没有预算上下限）先追问再搜；搜前先看结果总数，超过 400 套先不搜、提示用户收窄。用户说「把 1、3、5 做成给客户看的图片 / 客户版」时，抓这几套的详情和照片，做成本地 HTML 房源卡并截图成图片（不发布、不含任何中介信息）。首次写文案前先问他平时怎么给中介发消息（买盘、租盘各问一次），存进「我的档案/约盘口气.md」，以后按他的口气写并从他的修改里继续学。买家要的是商业 / 工业物业（办公室、商铺、店面、餐饮、诊所、B1/B2 厂房、仓库、宿舍、商业用地）就自动改去 CommercialGuru（commercialguru.com.sg）搜，同一套流程，见「商业 / 工业物业」一节。触发词：「帮我在 propertyguru 搜」「找办公室 / 商铺 / 厂房 / 仓库」「commercial guru」「工业单位」「做成客户版」「给客户看的图片」「房源卡」「找 X 房 X 万以内的盘」「联系挂盘中介」「cobroke」「约盘」「帮客户扫盘」。
 ---
 
 # pg-cobroke：扫盘 + 约盘
@@ -90,6 +90,35 @@ ld.map(x=>x.listingData).filter(Boolean).forEach(x=>({
 - 搜索页混着「相似房源」推荐，**必须用 `property.id === projectId` 过滤**，否则别的楼盘混进来
 - `agent.name` 有时是公司名不是人名，人名在详情页正则 `"agent":\{"id":\d+,"legacyId":[^,]*,"name":"([^"]+)"`
 - 99.co / edgeprop 会 403 掉 WebFetch，查楼龄/户型配比用浏览器开页面读
+
+## 商业 / 工业物业：自动切到 CommercialGuru（同一套流程，只换入口和字段）
+
+**什么时候切**：条件里出现 办公室 / office、商铺 / 店面 / shop / shophouse / retail、餐饮 / F&B、诊所 / medical、B1 / B2 / 厂房 / factory / 工业 / industrial、仓库 / warehouse、宿舍 / dormitory、商业用地 / land、business park、用途 / 营业执照 这类词，或用户直接说「commercial」「工业单位」。不用问他，直接去 `https://www.commercialguru.com.sg`（PropertyGuru 同一家、同一套页面结构）。
+
+**第 0 步多问的（商业单位和住宅不一样）**：用途（做什么生意，决定 B1 还是 B2、零售还是办公）、面积 sqft 下限上限、预算（租：每月；买：总价或 psf）、地契要求、层高 / 楼板承重 / 有没有货梯或 ramp（工业）、要不要临街 / 人流（零售）、能不能装修、什么时候要。
+
+**URL 拼法**（`__NEXT_DATA__` 里 `pageProps.pageData.searchParams` 会原样回显，可以自检）：
+- 入口：租 `/find-commercial-properties/property-for-rent`，买 `/find-commercial-properties/property-for-sale`；分类快捷：`/office-for-rent` `/industrial-for-rent` `/shop-for-rent` `/warehouse-for-rent` `/food-beverage-outlets-for-rent` `/business-science-park-for-rent` `/dormitory-for-rent` `/commercial-land-for-sale`（把 rent 换 sale 即买盘）
+- 类型：`propertyTypeGroup` + `propertyTypeCode`（可多个）：
+  - O 办公：`OFF` 办公室、`BSPKS` 商业 / 科学园
+  - R 零售：`SHOP` 商铺 / 店屋、`FOOD` 餐饮、`MALL` 商场铺、`MED` 医疗、`RET` 其他零售
+  - I 工业：`LIGHT` B1 轻工业、`FAC` B2 厂房 / 工坊、`WAR` 仓库、`DORM` 宿舍
+  - D 土地：`CLAND` 净地、`CBLOC` 带楼 / 整栋
+- 筛选：`districtCode=D22`（可多个）、`mrtStations=EW27&distanceFromCentre=1`（公里）、`minSize=2000&maxSize=10000`（sqft 楼面）、`minPrice/maxPrice`（租按月、买按总价）、`minPricePerArea/maxPricePerArea`（psf）、`tenureCode=F`（永久；租赁地契是 L60 / L99 这类）、`freetext=` 关键词
+- 翻页：路径后加 `/2` `/3`，每页 20 条
+- 例：`/industrial-for-rent?districtCode=D22&minSize=2000&maxSize=10000&maxPrice=8000` → 西部 B1/B2/仓库 2–10 千尺、月租 8 千以内
+
+**抓数据**（结构和 PropertyGuru 一样，字段名略有不同）：
+- 总数：`pageProps.pageData.resultCount`（先看它，>400 照旧先收窄）
+- 列表：`pageData.data.listingsData[].listingData`：`id`、`localizedTitle`（楼名）、`fullAddress`、`price.value` / `price.pretty`（租 `/mo`）、`floorArea`（sqft）、`psfText`、`mrt.nearbyText`、`agent.name`、`agent.license`（CEA 号）、`agent.profileUrl`、`url`
+- **中介电话不在列表页**，在详情页 `__NEXT_DATA__`：`pageData.data.listingDetail.lister.metaByType.agent.contacts[0].value`（`+65…`），或 `data.contactAgentData.contactAgentCard.agentInfoProps.agent.mobile`。勾选之后再逐条开详情页取号，别一开始就全抓
+- 详情页 `data.listingData` 还有：`propertyTypeCode`、`propertyTypeGroup`、`tenure`（F / L60 / L99…）、`districtCode`、`floorArea`、`landArea`、`postcode`、`streetName`；`data.detailsData.metatable.items` 里是「Fully fitted / Ramp available / Ceiling height / floor loading」这类要点，工业单位把这些抓进备注
+
+**去重键**：楼名 + 单位号（从标题或地址里抠，抠不到就用楼层 + 面积）+ 面积 + 报价。商业盘一套多中介挂比住宅更常见。
+
+**表和草稿的差别**：表列 `# | 楼名 | 地址 | 类型（B1/B2/办公/商铺）| 楼面 sqft | 月租或总价 | psf | 地契 | 地铁 | 中介 | 公司 | 备注`，备注写用途限制、装修状态、层高承重、货梯。询价正文三个必问点改成：co-broke 佣金、看房时段、**能不能做买家这个用途 / 现在的租约状态**。客户版房源卡把「房数卫数」换成「楼面 sqft、psf、类型、地契、层高 / 装修 / 货梯」。
+
+**红线一样**：条件不细不搜（至少要 类型 + 区或地铁 + 面积区间 + 预算）；总数 >400 先收窄；每条你自己发；一天不超过 20 条；号码不入表。
 
 ## 第 2 步：去重 + 呈现
 
