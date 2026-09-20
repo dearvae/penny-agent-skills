@@ -2,7 +2,11 @@
 
 Read this after the semantic edit plan (pipeline §5) and before writing the Markdown script (§6). The engine ships everything referenced here: 43 BGM tracks with beat grids (`public/music/bgm/README.md`), 53 sound effects with role tags (`public/sfx/README.md`), and the 剪映-style effect kit (`src/fx.tsx`, syntax in `SCRIPT_FORMAT.md` under 「特效与转场」 and 「配乐、换歌、卡点」).
 
-The rule that overrides everything below: **the speaker's voice is the product**. Music, effects and sound design exist to keep attention on what is being said. If a choice would make a viewer notice the editing instead of the point, drop it.
+The rule that overrides everything below: **nothing here is added by default.** The engine can do it; that is not a reason to use it. Start every cut with no effects, no beat sync, no pulse, one music track ducked under speech. Add an item only when (a) the user asked for it, (b) the script marks the moment, or (c) the edit plan can name the reason at that exact second. If the reason is "it looks more dynamic", it is not a reason.
+
+**Viewing tours (看房 / 探房 / listing walk-through) get none of this.** The viewer is there to understand the home: rooms, light, layout, condition. Cuts follow the narration and the space, never the drum grid; no pulse, no shake, no glitch, no flash. At most a calm transition when moving between units, if the user wants it.
+
+Second rule: **the speaker's voice is the product**. Music, effects and sound design exist to keep attention on what is being said. If a choice would make a viewer notice the editing instead of the point, drop it.
 
 ## 1. Music: choose per section, not per video
 
@@ -29,6 +33,8 @@ Rules:
 - **Copyright line.** The delivery notes must carry the BGM README's licence reminder (剪映 library, verify before publishing outside Douyin).
 
 ## 2. Beat sync (卡点): only where there is no speech to protect
+
+Opt-in only. Do not propose it; use it when the user asks for a rhythmic montage.
 
 `beat: true` snaps the cut points of a multi-shot segment to the nearest beats of the active track; `beat: 2` cuts every 2 beats; `pulse` (per shot or `pulse: true` per segment) adds a 5 % zoom kick on each beat.
 
@@ -80,7 +86,11 @@ Map them to speech, the way 剪映 templates do:
 
 Limits: at most **one transition and two effects per segment**, and no effect on two consecutive segments unless the whole video is a montage. Effects act on the picture layer only (captions and cards stay still) so the subtitle line never becomes unreadable. The default for a calm explanatory cut is zero effects; add them only at emotional turns you can name in the edit plan.
 
-## 5. Verify before delivery
+## 5. What the demo is and is not
+
+`scripts/fx-demo.md` stacks every feature into 45 s so each one can be checked. It is a feature test, not a style reference: a real cut of that length would carry one track, zero to two effects, and no beat sync.
+
+## 6. Verify before delivery
 
 - Rebuild, then read the generated data: `musicCues` start times fall on the intended segments, `beats` is non-empty when `beat:`/`pulse` were used, every auto sfx sits at the right `at`.
 - Render frames at every `fx:` / `trans:` time and at each music switch (± 0.5 s): no readable caption is hidden by a flash or wipe, and the shot after a beat cut is not shorter than 0.3 s.

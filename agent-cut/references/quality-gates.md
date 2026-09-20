@@ -12,7 +12,7 @@
 - Captions use the cleaned timeline, not the original timeline.
 - Requested talking-head mode is actually supported.
 - Music is assigned per emotional block (≤ 3 tracks), switches only at segment starts, and `music: none` is deliberate.
-- `beat:` / `pulse` appear only on montage segments; generated shot durations after beat snapping are all ≥ 0.3 s and within the usable source range.
+- Every effect, transition, beat cut and pulse in the script traces to a user request or a named reason in the edit plan; a viewing tour has none. `beat:` / `pulse` appear only on montage segments; generated shot durations after beat snapping are all ≥ 0.3 s and within the usable source range.
 - Every `sfx:` (including the ones added automatically by `fx:` / `trans:` / `anim=`) marks a visible event; the per-minute budget is respected.
 - No segment has more than one transition and two effects; consecutive segments do not both carry effects unless the video is a montage.
 

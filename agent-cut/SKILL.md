@@ -39,7 +39,8 @@ Full rules and the "platform self-check" to attach at delivery: `references/plat
 5. Never claim a capability was automatic when the agent made the decision manually.
 6. Never publish. Deliver files for user review.
 7. Never extend a moving shot by cloning its last frame, inserting a freeze frame, or silently looping into unrelated footage. A rendered segment must retain visible motion unless the user explicitly requested a still.
-8. Music, sound effects and visual effects serve the speech. Music is chosen per emotional block and ducks under every spoken segment; each sound effect marks one visible event; effects and transitions are punctuation at turns the edit plan can name, never decoration. Beat sync only on montage sections without speech to protect.
+8. Music, sound effects and visual effects serve the speech. Music is chosen per emotional block and ducks under every spoken segment; each sound effect marks one visible event; effects and transitions are punctuation at turns the edit plan can name, never decoration.
+9. **Default is no effects, no beat sync, no pulse.** Add an effect only when the script or the user asks for it, or when the edit plan names a specific reason at that exact moment. Never add one because the kit exists. A property viewing / unit tour (看房、探房) is watched to understand the home: no beat-following cuts, no pulse, no shake — the picture stays still and readable. Beat sync is reserved for montage sections with no narration (photo flash, feature reel), and only when the user wants that rhythm.
 
 ## Read first
 
@@ -92,7 +93,7 @@ Do not use `tpad=stop_mode=clone`, a repeated final frame, or an unnoticed sourc
 
 Write a one-line emotion map per section (hook / numbers / warning / story / CTA) and pick one music track per emotional block from the built-in library (`public/music/bgm/README.md`), switching with `music: <id>` at the segment where the narration turns and using `music: none` where a line must land in silence. Leave `music_duck` at the default so music dips under every spoken segment.
 
-Use beat sync (`beat: 2`, `pulse`) only on montage segments without narration to protect, with a track from the montage family. Place sound effects on visible events only (a card, a number, a cut, a reveal) within a budget of 4–8 per minute of talking head. Add 剪映-style effects (`trans:`, `fx:`, `anim=`) at most one transition and two effects per segment, and only at turns you can name ("but", new location, the number, the close). Full decision tables: `references/sound-and-fx.md`.
+Start from zero effects. Use beat sync (`beat: 2`, `pulse`) only when the user asked for a rhythmic montage and the segment has no narration to protect (never on a viewing tour), with a track from the montage family. Place sound effects on visible events only (a card, a number, a cut, a reveal) within a budget of 4–8 per minute of talking head. Add 剪映-style effects (`trans:`, `fx:`, `anim=`) at most one transition and two effects per segment, and only at turns you can name ("but", new location, the number, the close). Full decision tables: `references/sound-and-fx.md`.
 
 ### 7. Compose
 
