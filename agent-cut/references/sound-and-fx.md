@@ -18,7 +18,7 @@ Build a short **emotion map** from the edit plan: one line per section with the 
 | Policy, numbers, market read | `17_business_corporate` `40_news_flash` `41_news_grand` `09_light_relaxed` | neutral, no melody hooks that fight numbers |
 | Family, own-stay, first home, warmth | `29_calm_cute_piano` `02_warm_healing` `11_acoustic_romance` `30_fragile_heart` | piano/acoustic; keep `music_duck` at 0.5 |
 | Site, surroundings, drone, greenery | `19_sunset_coast` `20_forest_light` `06_travel_loop` `23_peaceful_nature` | works without speech too (montage) |
-| Fast montage, photo flash, unit tour | `25_funky_groove` `26_latin_zumba` `27_upbeat_energetic` `28_snap_clap_flash` `07_beat_drop_rock` | the only family where `beat:` and `pulse` belong |
+| Fast montage the user asked for (photo flash, feature reel; **not** a viewing tour) | `25_funky_groove` `26_latin_zumba` `27_upbeat_energetic` `28_snap_clap_flash` `07_beat_drop_rock` | the only family where `beat:` and `pulse` belong |
 | Promotion, launch, feature list | `21_ad_energy` `22_ad_funk` `42_business_sales` | short sections only (30–40 s), it tires |
 | Risk, "but", pitfalls | `38_rising_tension` (or **no music**) | pair with `fx: shake` / `riser_tense`; return to the previous track after |
 | Success story, motivation, CTA | `36_motivation` `37_dream_launch` | last section or ending only |
@@ -80,7 +80,7 @@ Map them to speech, the way 剪映 templates do:
 | opens the video / names the topic | `trans: open` or `fx: @0 open` on segment 1, `title: … anim=typewriter` for a named topic |
 | says "but", "the catch is", "most people get this wrong" | `fx: shake` on that word, or `fx: glitch` for a "system error" feel |
 | lands a number | `fx: zoom_pulse` on the number's card, or `p<sec>` zoom punch on the talking head |
-| moves to a new location / new unit | `trans: whip` or `trans: zoom_through` on the first shot there |
+| moves to a new location / new unit (only if the user wants a marked cut) | a calm `trans: whip` on the first shot there; on a viewing tour prefer a plain cut |
 | slows down for a serious point | `fx: vignette` for that segment, music to `38_rising_tension` or `none` |
 | finishes | `fx: close` 0.6 s before the end card, or let `Ending.tsx` handle it |
 
