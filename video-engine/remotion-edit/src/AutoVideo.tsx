@@ -19,6 +19,7 @@ import { theme } from "./theme";
 import { Sfx, SFX_NAMES, type SfxName } from "./sfx";
 import { WordCaptions } from "./WordCaptions";
 import { BarCompare, CountUp, PriceBreakdown, Timeline } from "./DataAnim";
+import { FxOverlay, fxContainerStyle, animEnterStyle, typewriterSlice, type FxCue, type AnimName } from "./fx";
 
 /* ═══════════════════════════════════════════════════════════════
    AutoVideo —— 「写一个 markdown 脚本 → 出片」的通用渲染组件
@@ -47,6 +48,8 @@ export type Shot =
       still?: boolean;
       /** zoom punch：画面开始后 at 秒硬切放大 scale 倍（默认 1.2） */
       punch?: { at: number; scale?: number };
+      /** 卡点脉冲：每个鼓点上轻轻放大一下（需要 data.beats） */
+      pulse?: boolean;
     }
   /** 静图 + Ken Burns */
   | {
@@ -55,11 +58,12 @@ export type Shot =
       dur?: number;
       zoom?: [number, number];
       pan?: [number, number];
+      pulse?: boolean;
     }
   /** 口播真人全屏（放大裁切）。画面来自 vo 自身的 mp4 */
-  | { kind: "person"; trim?: number; dur?: number; zoom?: number; punch?: { at: number; scale?: number } }
+  | { kind: "person"; trim?: number; dur?: number; zoom?: number; punch?: { at: number; scale?: number }; pulse?: boolean }
   /** 大标题字卡 */
-  | { kind: "title"; text: string; dur?: number }
+  | { kind: "title"; text: string; dur?: number; anim?: AnimName }
   /** 数字大卡 */
   | {
       kind: "stat";
@@ -120,9 +124,10 @@ export type Overlay =
       top?: number;
       at?: number;
       dur?: number;
+      anim?: AnimName;
     }
   /** 全屏钩子大字（压暗底图） */
-  | { kind: "hook"; lines: string[]; at?: number; dur?: number }
+  | { kind: "hook"; lines: string[]; at?: number; dur?: number; anim?: AnimName }
   /** 顶部单行滚动数字 */
   | {
       kind: "tick";
@@ -170,6 +175,8 @@ export type AutoSegment = {
   durationSec: number;
   shots: Shot[];
   overlays: Overlay[];
+  /** 特效 / 转场（作用在这一段的画面上），见 fx.tsx */
+  fx?: FxCue[];
 };
 
 export type AutoVideoData = {
@@ -182,6 +189,13 @@ export type AutoVideoData = {
   gapSec: number;
   ending: boolean;
   music?: { src: string; volume?: number };
+  /** 按段切换的配乐：每条 cue 从 fromSec 起一直铺到下一条 cue（或片尾），相邻 cue 交叉淡化。
+   *  src 为空 = 这一段起没有音乐。volume 已含 bgmGain。有 musicCues 时忽略 music */
+  musicCues?: { fromSec: number; src?: string; volume?: number }[];
+  /** 口播段落里音乐压到几成（自动闪避）。默认 0.5；1 = 不闪避 */
+  duck?: number;
+  /** 整条时间线上的鼓点（绝对秒），给 pulse 卡点脉冲用；由 build-video 从配乐的 beats/*.json 算出 */
+  beats?: number[];
   /** 连续 room tone 垫底音量。不写＝按克隆声默认 0.45；用她真人录音的片子写 0.2；不要写 0 关掉。
    *  为什么要有：见 src/NewsVideo.tsx 里 roomtone 那段注释。 */
   roomTone?: number;
@@ -357,10 +371,30 @@ const Scrim: React.FC = () => (
   />
 );
 
+/** 卡点脉冲：最近一个鼓点后的 7 帧里从 +5% 衰减回 1 */
+const pulseScale = (beats: number[] | undefined, absFrame: number, fps: number, on?: boolean) => {
+  if (!on || !beats || beats.length === 0) return 1;
+  const t = absFrame / fps;
+  // beats 已排序：找最近的过去鼓点
+  let lo = 0;
+  let hi = beats.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (beats[mid] <= t + 1e-6) lo = mid;
+    else hi = mid - 1;
+  }
+  const dt = t - beats[lo];
+  if (dt < 0 || dt > 7 / fps) return 1;
+  const k = 1 - dt / (7 / fps);
+  return 1 + 0.05 * k * k;
+};
+
 const BrollShot: React.FC<{
   s: Extract<Shot, { kind: "broll" }>;
   frames: number;
-}> = ({ s, frames }) => {
+  absFrom?: number;
+  beats?: number[];
+}> = ({ s, frames, absFrom = 0, beats }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const z = s.zoom ?? 1.04;
@@ -369,7 +403,7 @@ const BrollShot: React.FC<{
     : interpolate(frame, [0, frames], [z, z * 1.05], {
         extrapolateRight: "clamp",
       });
-  const scale = base * punchScale(s.punch, frame, fps);
+  const scale = base * punchScale(s.punch, frame, fps) * pulseScale(beats, absFrom + frame, fps, s.pulse);
   return (
     <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
       <Video
@@ -389,14 +423,18 @@ const BrollShot: React.FC<{
 const PhotoShot: React.FC<{
   s: Extract<Shot, { kind: "photo" }>;
   frames: number;
-}> = ({ s, frames }) => {
+  absFrom?: number;
+  beats?: number[];
+}> = ({ s, frames, absFrom = 0, beats }) => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   const zoom = s.zoom ?? [1.04, 1.16];
   const pan = s.pan ?? [0, 0];
-  const scale = interpolate(frame, [0, frames], zoom, {
-    extrapolateRight: "clamp",
-    easing: Easing.bezier(0.33, 0, 0.67, 1),
-  });
+  const scale =
+    interpolate(frame, [0, frames], zoom, {
+      extrapolateRight: "clamp",
+      easing: Easing.bezier(0.33, 0, 0.67, 1),
+    }) * pulseScale(beats, absFrom + frame, fps, s.pulse);
   const p = interpolate(frame, [0, frames], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -427,11 +465,13 @@ const punchScale = (
 const PersonShot: React.FC<{
   s: Extract<Shot, { kind: "person" }>;
   vo?: string;
-}> = ({ s, vo }) => {
+  absFrom?: number;
+  beats?: number[];
+}> = ({ s, vo, absFrom = 0, beats }) => {
   const { fps } = useVideoConfig();
   const frame = useCurrentFrame();
   if (!vo) return <AbsoluteFill style={{ background: theme.ink }} />;
-  const z = (s.zoom ?? 1.32) * punchScale(s.punch, frame, fps);
+  const z = (s.zoom ?? 1.32) * punchScale(s.punch, frame, fps) * pulseScale(beats, absFrom + frame, fps, s.pulse);
   return (
     <AbsoluteFill style={{ background: theme.ink, overflow: "hidden" }}>
       <Video
@@ -454,6 +494,10 @@ const TitleShot: React.FC<{ s: Extract<Shot, { kind: "title" }> }> = ({ s }) => 
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const sp = spring({ frame, fps, config: { damping: 13, mass: 0.6 } });
+  // 打字机：文字逐字出现，末尾带光标；其它入场动画走 animEnterStyle
+  const tw = s.anim === "typewriter" ? typewriterSlice(s.text, frame, fps) : null;
+  const enter = animEnterStyle(s.anim, frame, fps);
+  const baseTransform = s.anim && s.anim !== "typewriter" ? undefined : `scale(${0.86 + 0.14 * sp})`;
   return (
     <AbsoluteFill
       style={{
@@ -472,11 +516,19 @@ const TitleShot: React.FC<{ s: Extract<Shot, { kind: "title" }> }> = ({ s }) => 
           lineHeight: 1.25,
           textAlign: "center",
           maxWidth: 960,
-          transform: `scale(${0.86 + 0.14 * sp})`,
-          opacity: Math.min(1, sp * 1.6),
+          transform: baseTransform,
+          opacity: tw ? 1 : Math.min(1, sp * 1.6),
+          ...enter,
         }}
       >
-        <Rich text={s.text} />
+        {tw ? (
+          <span>
+            {tw.text}
+            <span style={{ opacity: tw.typing || Math.floor(frame / 8) % 2 === 0 ? 1 : 0, color: theme.accent }}>▍</span>
+          </span>
+        ) : (
+          <Rich text={s.text} />
+        )}
       </div>
       <div
         style={{
@@ -864,18 +916,20 @@ const ChatShot: React.FC<{
   );
 };
 
-const ShotLayer: React.FC<{ s: Shot; frames: number; vo?: string }> = ({
+const ShotLayer: React.FC<{ s: Shot; frames: number; vo?: string; absFrom?: number; beats?: number[] }> = ({
   s,
   frames,
   vo,
+  absFrom,
+  beats,
 }) => {
   switch (s.kind) {
     case "broll":
-      return <BrollShot s={s} frames={frames} />;
+      return <BrollShot s={s} frames={frames} absFrom={absFrom} beats={beats} />;
     case "photo":
-      return <PhotoShot s={s} frames={frames} />;
+      return <PhotoShot s={s} frames={frames} absFrom={absFrom} beats={beats} />;
     case "person":
-      return <PersonShot s={s} vo={vo} />;
+      return <PersonShot s={s} vo={vo} absFrom={absFrom} beats={beats} />;
     case "title":
       return <TitleShot s={s} />;
     case "stat":
@@ -985,10 +1039,12 @@ const InfoCard: React.FC<Extract<Overlay, { kind: "card" }>> = ({
   title,
   rows = [],
   top = 320,
+  anim,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 15, mass: 0.7 } });
+  const enter = anim ? animEnterStyle(anim, frame, fps) : null;
   return (
     <div
       style={{
@@ -1006,6 +1062,7 @@ const InfoCard: React.FC<Extract<Overlay, { kind: "card" }>> = ({
         fontFamily: theme.font,
         transform: `translateY(${(1 - s) * 28}px)`,
         opacity: Math.min(1, s * 1.6),
+        ...(enter ?? {}),
       }}
     >
       {tag ? (
@@ -1404,21 +1461,29 @@ const layoutShots = (
   return out;
 };
 
-const SegmentView: React.FC<{ seg: AutoSegment; frames: number }> = ({
+const SegmentView: React.FC<{ seg: AutoSegment; frames: number; absFrom?: number; beats?: number[] }> = ({
   seg,
   frames,
+  absFrom = 0,
+  beats,
 }) => {
   const { fps } = useVideoConfig();
+  const frame = useCurrentFrame();
   const placed = layoutShots(seg.shots, frames, fps);
   const voVol = seg.voVolume ?? 1;
+  // 特效：容器变换（抖动/脉冲/模糊/滑入）作用在所有镜头上；盖层压在镜头之上、字卡之下
+  const fxStyle = fxContainerStyle(seg.fx, frame, fps, frames);
 
   return (
     <AbsoluteFill style={{ background: theme.ink }}>
-      {placed.map((p, i) => (
-        <Sequence key={i} from={p.from} durationInFrames={p.frames}>
-          <ShotLayer s={p.s} frames={p.frames} vo={seg.vo} />
-        </Sequence>
-      ))}
+      <AbsoluteFill style={fxStyle}>
+        {placed.map((p, i) => (
+          <Sequence key={i} from={p.from} durationInFrames={p.frames}>
+            <ShotLayer s={p.s} frames={p.frames} vo={seg.vo} absFrom={absFrom + p.from} beats={beats} />
+          </Sequence>
+        ))}
+      </AbsoluteFill>
+      <FxOverlay cues={seg.fx} frame={frame} fps={fps} segFrames={frames} />
 
       {seg.vo ? (
         <Audio
@@ -1514,22 +1579,50 @@ export const AutoVideo: React.FC<{ data: AutoVideoData }> = ({ data }) => {
     return { seg, from, frames };
   });
 
+  // 自动闪避：口播段落内音乐压到 duck 成，段落边界 12 帧渐变
+  const duck = data.duck ?? 0.5;
+  const voRanges = placed.filter((p) => p.seg.vo).map((p) => [p.from, p.from + Math.round(p.seg.durationSec * fps)] as const);
+  const duckAt = (abs: number) => {
+    if (duck >= 1 || voRanges.length === 0) return 1;
+    let best = 1;
+    for (const [a, b] of voRanges) {
+      const d = abs < a ? a - abs : abs > b ? abs - b : 0;
+      const v = interpolate(d, [0, 12], [duck, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+      if (v < best) best = v;
+    }
+    return best;
+  };
+  // 配乐 cue：没有 musicCues 时把老的 music 当成从 0 开始的一条
+  const cues = (data.musicCues ?? (data.music ? [{ fromSec: 0, src: data.music.src, volume: musicVol }] : []))
+    .map((c) => ({ ...c, from: Math.round(c.fromSec * fps) }))
+    .sort((a, b) => a.from - b.from);
+  const XF = 20; // 交叉淡化帧数
+
   return (
     <AbsoluteFill style={{ background: theme.ink }}>
-      {data.music ? (
-        <Audio
-          src={staticFile(data.music.src)}
-          loop
-          volume={(f) =>
-            interpolate(
-              f,
-              [0, 20, Math.max(30, body - 30), body],
-              [0, musicVol, musicVol, 0],
-              { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-            )
-          }
-        />
-      ) : null}
+      {cues.map((c, i) => {
+        if (!c.src) return null;
+        const next = cues[i + 1];
+        const end = Math.min(body, (next ? next.from + XF : body));
+        const len = end - c.from;
+        if (len <= 0) return null;
+        const vol = c.volume ?? musicVol;
+        const fadeIn = i === 0 ? 20 : XF;
+        return (
+          <Sequence key={`music-${i}`} from={c.from} durationInFrames={len} name={`music:${c.src}`}>
+            <Audio
+              src={staticFile(c.src)}
+              loop
+              volume={(f) =>
+                interpolate(f, [0, fadeIn, Math.max(fadeIn + 1, len - XF), len], [0, vol, vol, 0], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                }) * duckAt(c.from + f)
+              }
+            />
+          </Sequence>
+        );
+      })}
 
       {/* 连续 room tone 垫底。配音自带底噪，而段落空隙是数字静音，落差能到 47dB，
           噪音一停一起特别刺耳。铺一层 150–2000Hz 的粉噪把地板托起来，背景就连续了。
@@ -1556,7 +1649,7 @@ export const AutoVideo: React.FC<{ data: AutoVideoData }> = ({ data }) => {
           durationInFrames={frames}
           name={seg.id}
         >
-          <SegmentView seg={seg} frames={frames} />
+          <SegmentView seg={seg} frames={frames} absFrom={from} beats={data.beats} />
         </Sequence>
       ))}
 

@@ -87,7 +87,12 @@ Current reliable primitives:
 - `person:` for synchronized full-screen talking head;
 - `broll:` with trim, duration, rate, and zoom;
 - `captions:` with sentence or word timing;
-- cards, titles, stats, and sound effects.
+- cards, titles, stats, and sound effects;
+- `music: <id>` per segment (43-track library, gain-matched, crossfaded, auto-ducked under `vo:`; `music: none` for silence);
+- `beat: true|N` and `pulse` for beat-synced montage cuts (beat grids in `public/music/bgm/beats/`);
+- `fx:` / `trans:` (剪映-style: open, close, flash, shake, glitch, whip, zoom_through, wipe, vignette…) and `anim=` text entrances, each with a default sound effect (`nosfx` to mute).
+
+Decision rules for all of these: `references/sound-and-fx.md`. Syntax: `SCRIPT_FORMAT.md` sections 「配乐、换歌、卡点」 and 「特效与转场」.
 
 Do not modify generated TSX. Change the Markdown script and rebuild it.
 

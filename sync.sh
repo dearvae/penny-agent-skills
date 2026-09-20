@@ -33,7 +33,7 @@ echo "同步完成。检查改动：git diff --stat"
 # 模板自有文件（Root.tsx / newsIndex / newlaunchIndex / generated/index.ts /
 # scripts/demo.md / README.md / .env.minimax.example）不在同步范围，不会被冲掉。
 RE=../remotion-edit
-for f in AutoVideo.tsx Ending.tsx ProgressCheck.tsx theme.ts sfx.ts WordCaptions.tsx DataAnim.tsx \
+for f in AutoVideo.tsx fx.tsx RootAuto.tsx index-auto.ts Ending.tsx ProgressCheck.tsx theme.ts sfx.ts WordCaptions.tsx DataAnim.tsx \
          NewsVideo.tsx NewsEnding.tsx NewLaunchVideo.tsx NewLaunchEnding.tsx index.css index.ts \
          styles.ts StyleKit.tsx StylePreview.tsx Cover.tsx NewsVisualsP1.tsx newsMediaPlan.ts; do
   cp "$RE/src/$f" video-engine/remotion-edit/src/

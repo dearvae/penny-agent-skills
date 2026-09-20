@@ -218,6 +218,7 @@ const parseClip = (token) => {
     if (/^x\d/.test(mod)) clip.rate = Number(mod.slice(1));
     else if (/^z\d/.test(mod)) clip.zoom = Number(mod.slice(1));
     else if (mod === "still") clip.still = true;
+    else if (mod === "pulse") clip.pulse = true;
     else if (/^p\d/.test(mod)) {
       const pm = mod.slice(1).match(/^(\d+(?:\.\d+)?)(?:\/(\d+(?:\.\d+)?))?$/);
       if (!pm) die(`看不懂的 zoom punch 写法：${mod}（应为 p3.2 或 p3.2/1.25）`);
@@ -299,6 +300,113 @@ const findAsset = (name, dirs, exts) => {
   return null;
 };
 
+/* ══════════════════════════════════════════════════════════════
+   配乐库、鼓点、特效表（和 src/styles.ts、src/fx.tsx 对齐）
+   ══════════════════════════════════════════════════════════════ */
+
+/** 从 src/styles.ts 读 BGM_TRACKS：id → { meanDb, seconds }（和 add-bgm.mjs 同一套正则） */
+const BGM = (() => {
+  const out = new Map();
+  try {
+    const ts = fs.readFileSync(path.join(ROOT, "src/styles.ts"), "utf8");
+    for (const m of ts.matchAll(/^\s+"([^"]+)": \{ file: "([^"]+)".*?meanDb: (-?[\d.]+), seconds: (\d+)/gm)) {
+      out.set(m[1], { file: "music/" + m[2], meanDb: Number(m[3]), seconds: Number(m[4]) });
+    }
+  } catch {}
+  return out;
+})();
+const BGM_TARGET_DB = -19;
+/** 曲库里的曲子默认放到 bgmGain × 0.5（比 news-shot 低 6 dB，口播片更稳），再叠自动闪避 */
+const BGM_DEFAULT_MULT = 0.5;
+
+/** `music: 25_funky_groove` / `music: bgm/25_funky_groove` / `music: some_file` → { src, volume, id, beats, seconds } */
+const resolveMusic = (name, mult) => {
+  const bare = String(name).trim().replace(/^bgm\//, "").replace(/\.mp3$/, "");
+  const known = BGM.get(bare);
+  if (known) {
+    const gain = Math.pow(10, (BGM_TARGET_DB - known.meanDb) / 20);
+    let beats;
+    const bp = path.join(PUBLIC, "music/bgm/beats", bare + ".json");
+    if (exists(bp)) {
+      try { beats = JSON.parse(fs.readFileSync(bp, "utf8")); } catch {}
+    }
+    return { src: known.file, volume: gain * (mult ?? BGM_DEFAULT_MULT), id: bare, beats, seconds: known.seconds };
+  }
+  const rel = findAsset(String(name), ["music", "music/bgm"], [".mp3", ".wav", ".m4a"]);
+  if (!rel) die(`找不到背景音乐：${name}（找过 public/music/ 和曲库 id，曲库见 public/music/bgm/README.md）`);
+  return { src: rel, volume: mult ?? 0.075 };
+};
+
+/** 一条 cue 覆盖 [fromSec, toSec) 时间段里的所有绝对鼓点（曲子循环时按时长平移） */
+const cueBeats = (cue, toSec) => {
+  if (!cue.beats || !Array.isArray(cue.beats.beats) || cue.beats.beats.length === 0) return [];
+  const period = cue.beats.duration || cue.seconds || 0;
+  const out = [];
+  for (let k = 0; ; k++) {
+    const off = cue.fromSec + k * period;
+    let any = false;
+    for (const b of cue.beats.beats) {
+      const t = off + b;
+      if (t >= toSec) break;
+      if (t >= cue.fromSec) { out.push(Math.round(t * 1000) / 1000); any = true; }
+    }
+    if (!any || period <= 0) break;
+  }
+  return out;
+};
+
+/** fx / trans / anim 的默认音效（和 src/fx.tsx 里的表一致） */
+const FX_NAMES = ["flash", "shake", "glitch", "open", "close", "blur_in", "wipe", "slide_up", "zoom_pulse", "vignette", "spin_in", "zoom_through"];
+const FX_SFX = { flash: "swish", shake: "dong_variety", glitch: "electric_zap", open: "riser_reverb", close: "ding_long", blur_in: "whoosh_long", wipe: "swish", slide_up: "whoosh_cartoon", zoom_pulse: "pop_bubble", vignette: null, spin_in: "whoosh1", zoom_through: "whoosh3" };
+const TRANS = {
+  whip: [{ name: "blur_in", dur: 0.3 }, { name: "slide_up", dur: 0.3 }],
+  zoom_through: [{ name: "zoom_through" }],
+  fade_black: [{ name: "wipe", dur: 0.5 }],
+  glitch_in: [{ name: "glitch" }],
+  wipe_in: [{ name: "wipe" }],
+  slide_in: [{ name: "slide_up" }],
+  open: [{ name: "open" }],
+};
+const TRANS_SFX = { whip: "whoosh2", zoom_through: "whoosh3", fade_black: null, glitch_in: "electric_zap", wipe_in: "swish", slide_in: "whoosh_cartoon", open: "riser_reverb" };
+const ANIM_NAMES = ["typewriter", "bounce", "slide_up", "blur", "flip"];
+const ANIM_SFX = { typewriter: "typing_caption", bounce: "boing_pop", slide_up: "whoosh_cartoon", blur: null, flip: "page_flip" };
+
+/** 从一行尾部摘掉 `nosfx` / `sfx=名字` / `anim=名字`，返回 { rest, sfx, anim }（sfx: undefined=默认, null=关掉） */
+const takeMods = (text) => {
+  const parts = String(text).trim().split(/\s+/);
+  let sfx;
+  let anim;
+  const keep = [];
+  for (const t of parts) {
+    if (t === "nosfx") sfx = null;
+    else if (/^sfx=/.test(t)) sfx = t.slice(4);
+    else if (/^anim=/.test(t)) anim = t.slice(5);
+    else keep.push(t);
+  }
+  return { rest: keep.join(" "), sfx, anim };
+};
+
+/** 把鼓点吸附进镜头切点：boundaries（段内秒）→ 吸到最近的绝对鼓点 */
+const snapBoundaries = (boundaries, segStartSec, segDur, beatsAbs, minGap = 0.3) => {
+  if (!beatsAbs || beatsAbs.length === 0) return boundaries;
+  const out = [];
+  let prev = 0;
+  for (const b of boundaries) {
+    const abs = segStartSec + b;
+    let best = null;
+    for (const t of beatsAbs) {
+      if (best === null || Math.abs(t - abs) < Math.abs(best - abs)) best = t;
+    }
+    let local = best === null ? b : best - segStartSec;
+    if (local < prev + minGap) local = prev + minGap; // 别吸到同一个点上
+    if (local > segDur - minGap) local = segDur - minGap;
+    local = Math.round(local * 1000) / 1000;
+    out.push(local);
+    prev = local;
+  }
+  return out;
+};
+
 const probeCache = new Map();
 const probeSec = (relPath) => {
   if (probeCache.has(relPath)) return probeCache.get(relPath);
@@ -366,10 +474,30 @@ const buildSegments = (sections, fm, dirs) => {
   const segments = [];
   /** 上一段最后一个 b-roll/photo 镜头，用来做「没写就沿用上一段」 */
   let carry = null;
+  /** 配乐 cue（按段切换）。全局 music: 是第 0 秒那条 */
+  const cues = [];
+  const gapSec = Number(fm.gap ?? 0.1);
+  const musicMult = fm.music_volume === undefined ? undefined : Number(fm.music_volume);
+  if (fm.music && String(fm.music) !== "none") cues.push({ fromSec: 0, ...resolveMusic(fm.music, musicMult) });
+  let startSec = 0;
 
   sections.forEach((sec, idx) => {
     const f = sec.fields;
     const id = (one(f, "id") ?? `s${idx + 1}`).replace(/\s+/g, "_");
+    /** 本段要配的音效（特效/动画自动带的），最后并进 overlays */
+    const pendingSfx = [];
+    const segPulse = truthy(one(f, "pulse")) === true || fm.pulse === true;
+
+    /* ── 本段切歌？ ───────────────────────────────────── */
+    const musicRaw = one(f, "music");
+    if (musicRaw !== undefined) {
+      if (musicRaw === "none" || musicRaw === "off") cues.push({ fromSec: startSec });
+      else if (musicRaw !== "keep") {
+        const segMult = one(f, "music_volume") === undefined ? musicMult : Number(one(f, "music_volume"));
+        cues.push({ fromSec: startSec, ...resolveMusic(musicRaw, segMult) });
+      }
+    }
+    const activeCue = cues.length ? cues[cues.length - 1] : null;
 
     /* ── vo + 时长 ─────────────────────────────────────── */
     let vo;
@@ -411,6 +539,7 @@ const buildSegments = (sections, fm, dirs) => {
         if (zoom !== undefined) shot.zoom = Number(zoom);
         if (clip.still) shot.still = true;
         if (clip.punch) shot.punch = clip.punch;
+        if (clip.pulse || segPulse) shot.pulse = true;
         shots.push(shot);
       }
     }
@@ -424,6 +553,7 @@ const buildSegments = (sections, fm, dirs) => {
         if (!rel) die(`[${sec.name}] 找不到图片：${clip.name}（找过 public/${dirs.photo}/）`);
         const shot = { kind: "photo", src: rel };
         if (clip.dur !== undefined) shot.dur = clip.dur;
+        if (clip.pulse || segPulse) shot.pulse = true;
         shots.push(shot);
       }
     }
@@ -433,13 +563,21 @@ const buildSegments = (sections, fm, dirs) => {
       if (clip.dur !== undefined) shot.dur = clip.dur;
       if (clip.zoom !== undefined) shot.zoom = clip.zoom;
       if (clip.punch) shot.punch = clip.punch;
+      if (clip.pulse || segPulse) shot.pulse = true;
       shots.push(shot);
     }
     if (f.person && f.person.length === 0) shots.push({ kind: "person" });
     for (const raw of many(f, "title")) {
       const t = takeTiming(raw);
-      const shot = { kind: "title", text: t.rest };
+      const mods = takeMods(t.rest);
+      const shot = { kind: "title", text: mods.rest };
       if (t.dur !== undefined) shot.dur = t.dur;
+      if (mods.anim) {
+        if (!ANIM_NAMES.includes(mods.anim)) die(`[${sec.name}] 不认识的文字动画 anim=${mods.anim}（可用：${ANIM_NAMES.join(" ")}）`);
+        shot.anim = mods.anim;
+        const sfxName = mods.sfx === undefined ? ANIM_SFX[mods.anim] : mods.sfx;
+        if (sfxName) pendingSfx.push({ name: sfxName, at: 0 });
+      }
       shots.push(shot);
     }
     for (const raw of many(f, "stat")) {
@@ -580,6 +718,59 @@ const buildSegments = (sections, fm, dirs) => {
       die(`[${sec.name}] 算不出时长：既没有 vo:，也没有 dur:`);
     }
 
+    /* ── 卡点：把镜头切点吸到鼓点上 ─────────────────────── */
+    const beatRaw = one(f, "beat");
+    const beatMode = beatRaw === undefined ? undefined : /^\d+$/.test(beatRaw) ? Number(beatRaw) : truthy(beatRaw);
+    if (beatMode && shots.length >= 2) {
+      const beatsAbs = activeCue && activeCue.src ? cueBeats(activeCue, startSec + durationSec + 1) : [];
+      if (beatsAbs.length === 0) {
+        warn(`[${sec.name}] 写了 beat: 但当前配乐没有鼓点表（曲库曲子才有 beats/*.json），这段不卡点`);
+      } else {
+        let boundaries;
+        if (beatMode === true) {
+          // 先按老规则平铺，再把每个切点吸到最近的鼓点
+          const laid0 = layoutSeconds(shots, durationSec);
+          boundaries = laid0.slice(0, -1).map((it) => it.from + it.dur);
+        } else {
+          // 每 N 个鼓点切一刀：从段起点后的第一个鼓点数起
+          const inSeg = beatsAbs.filter((t) => t > startSec + 0.15 && t < startSec + durationSec - 0.15).map((t) => t - startSec);
+          boundaries = [];
+          for (let i = beatMode - 1; i < inSeg.length && boundaries.length < shots.length - 1; i += beatMode) boundaries.push(inSeg[i]);
+        }
+        boundaries = snapBoundaries(boundaries, startSec, durationSec, beatsAbs);
+        let prev = 0;
+        for (let i = 0; i < shots.length - 1 && i < boundaries.length; i++) {
+          shots[i].dur = Math.round((boundaries[i] - prev) * 1000) / 1000;
+          prev = boundaries[i];
+        }
+        // 最后一个镜头不写 dur，铺到段尾
+        delete shots[shots.length - 1].dur;
+      }
+    }
+
+    /* ── 特效 / 转场 ─────────────────────────────────────── */
+    const fx = [];
+    for (const raw of many(f, "trans")) {
+      const mods = takeMods(raw);
+      const name = mods.rest.trim();
+      if (!TRANS[name]) die(`[${sec.name}] 不认识的转场 trans: ${name}（可用：${Object.keys(TRANS).join(" ")}）`);
+      for (const c of TRANS[name]) fx.push({ name: c.name, at: 0, ...(c.dur !== undefined ? { dur: c.dur } : {}) });
+      const sfxName = mods.sfx === undefined ? TRANS_SFX[name] : mods.sfx;
+      if (sfxName) pendingSfx.push({ name: sfxName, at: 0 });
+    }
+    for (const raw of many(f, "fx")) {
+      const t = takeTiming(raw);
+      const mods = takeMods(t.rest);
+      const name = mods.rest.trim();
+      if (!FX_NAMES.includes(name)) die(`[${sec.name}] 不认识的特效 fx: ${name}（可用：${FX_NAMES.join(" ")}）`);
+      const cue = { name };
+      if (t.at !== undefined) cue.at = t.at;
+      if (t.dur !== undefined) cue.dur = t.dur;
+      fx.push(cue);
+      const sfxName = mods.sfx === undefined ? FX_SFX[name] : mods.sfx;
+      if (sfxName) pendingSfx.push({ name: sfxName, at: t.at ?? 0 });
+    }
+
     /* ── person 镜头的音频入点（画面要对上口型）──────────── */
     const laid = layoutSeconds(shots, durationSec);
     for (const item of laid) {
@@ -630,8 +821,15 @@ const buildSegments = (sections, fm, dirs) => {
 
     for (const raw of many(f, "card")) {
       const t = takeTiming(raw);
-      const { tag, title, rows } = parseCardBody(t.rest);
+      const mods = takeMods(t.rest);
+      const { tag, title, rows } = parseCardBody(mods.rest);
       const o = { kind: "card" };
+      if (mods.anim) {
+        if (!ANIM_NAMES.includes(mods.anim)) die(`[${sec.name}] 不认识的文字动画 anim=${mods.anim}`);
+        o.anim = mods.anim;
+        const sfxName = mods.sfx === undefined ? ANIM_SFX[mods.anim] : mods.sfx;
+        if (sfxName) pendingSfx.push({ name: sfxName, at: t.at ?? 0 });
+      }
       if (tag) o.tag = tag;
       if (title) o.title = title;
       if (rows.length) o.rows = rows;
@@ -641,8 +839,16 @@ const buildSegments = (sections, fm, dirs) => {
     }
     for (const raw of many(f, "hook")) {
       const t = takeTiming(raw);
-      const lines = t.rest.split("|").map((s) => s.trim()).filter(Boolean);
-      pushTimed({ kind: "hook", lines }, t);
+      const mods = takeMods(t.rest);
+      const lines = mods.rest.split("|").map((s) => s.trim()).filter(Boolean);
+      const o = { kind: "hook", lines };
+      if (mods.anim) {
+        if (!ANIM_NAMES.includes(mods.anim)) die(`[${sec.name}] 不认识的文字动画 anim=${mods.anim}`);
+        o.anim = mods.anim;
+        const sfxName = mods.sfx === undefined ? ANIM_SFX[mods.anim] : mods.sfx;
+        if (sfxName) pendingSfx.push({ name: sfxName, at: t.at ?? 0 });
+      }
+      pushTimed(o, t);
     }
     for (const raw of many(f, "tick")) {
       const t = takeTiming(raw);
@@ -683,6 +889,12 @@ const buildSegments = (sections, fm, dirs) => {
       if (t.at !== undefined) o.at = t.at;
       overlays.push(o);
     }
+    // 特效 / 转场 / 文字动画自动带的音效（写了 nosfx 的已经被过滤掉）
+    for (const ps of pendingSfx) {
+      const rel = findAsset(ps.name, [dirs.sfx], [".wav", ".mp3", ".m4a"]);
+      if (!rel) { warn(`[${sec.name}] 特效默认音效 ${ps.name} 不在 public/${dirs.sfx}/，跳过`); continue; }
+      overlays.push({ kind: "sfx", src: rel, at: ps.at });
+    }
 
     /* ── 组装 ─────────────────────────────────────────── */
     const seg = { id, durationSec: Math.round(durationSec * 1000) / 1000, shots, overlays };
@@ -710,10 +922,21 @@ const buildSegments = (sections, fm, dirs) => {
       durationSec: seg.durationSec,
       shots: seg.shots,
       overlays: seg.overlays,
+      fx: fx.length ? fx : undefined,
     });
+    startSec += seg.durationSec + gapSec;
   });
 
-  return segments;
+  /* ── 配乐 cue 收尾：算整条时间线的鼓点（给 pulse 用）──────── */
+  const totalSec = startSec;
+  const beats = [];
+  cues.forEach((c, i) => {
+    const to = i + 1 < cues.length ? cues[i + 1].fromSec : totalSec;
+    if (c.src) beats.push(...cueBeats(c, to));
+  });
+  beats.sort((a, b) => a - b);
+  const musicCues = cues.map((c) => ({ fromSec: Math.round(c.fromSec * 1000) / 1000, src: c.src, volume: c.volume === undefined ? undefined : Math.round(c.volume * 10000) / 10000 }));
+  return Object.assign(segments, { musicCues, beats });
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -763,12 +986,12 @@ const buildOne = (mdPath) => {
     segments,
   };
 
-  if (fm.music) {
-    const rel = findAsset(String(fm.music), ["music"], [".mp3", ".wav", ".m4a"]);
-    if (!rel) die(`找不到背景音乐：${fm.music}（找过 public/music/）`);
-    data.music = { src: rel };
-    if (fm.music_volume !== undefined) data.music.volume = Number(fm.music_volume);
+  // 配乐：全局 music: + 各段 music: 合成 cue 列表（AutoVideo 交叉淡化、自动闪避）
+  if (segments.musicCues && segments.musicCues.length) {
+    data.musicCues = segments.musicCues;
+    if (segments.beats && segments.beats.length) data.beats = segments.beats;
   }
+  if (fm.music_duck !== undefined) data.duck = Number(fm.music_duck);
   // room tone 垫底：不写＝用 AutoVideo 的默认 0.45（对应 MiniMax 克隆声）。
   // 用她真人录音的片子写 room_tone: 0.2。原理见 .claude/skills/news-shot/SKILL.md 第 6.5 步。
   if (fm.room_tone !== undefined) data.roomTone = Number(fm.room_tone);

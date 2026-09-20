@@ -81,8 +81,10 @@ card: @0.8+7.5 [先拆价格] 签的是 **10个月** || 短租本来就贵 | 折
 | `width` / `height` | `1080` / `1920` | |
 | `gap` | `0.1` | 段与段之间留白（秒），给口播换气 |
 | `ending` | `true` | 自动接通用片尾（`Ending.tsx`，111 帧） |
-| `music` | — | 背景音乐，找 `public/music/` 下的文件，如 `placeholder_beat` |
-| `music_volume` | `0.075` | |
+| `music` | — | 背景音乐。**优先写曲库 id**（`25_funky_groove`，全表见 `public/music/bgm/README.md`，43 首带鼓点），也可以写 `public/music/` 下的文件名 |
+| `music_volume` | 曲库 `0.5` / 文件 `0.075` | 曲库曲子已按响度归一，这里是再乘的倍数 |
+| `music_duck` | `0.5` | 自动闪避：口播段落里音乐压到几成，段落边界 12 帧渐变；`1` = 不闪避 |
+| `pulse` | `false` | 全片所有 b-roll / 图片都跟鼓点做卡点脉冲（等于每个镜头都写 `pulse`） |
 | `room_tone` | `0.45` | 连续 room tone 垫底音量。**不用写**——默认值就是给克隆声调好的。用她真人录音的片子写 `0.2`（真人录音底噪 −45 dB，比克隆声干净）。不要写 `0` 关掉，关了段落空隙会变成数字静音，落差 47 dB 很刺耳。原理见 `.claude/skills/news-shot/SKILL.md` 第 6.5 步 |
 | `topbar` | — | 常驻顶栏文字（新闻/快讯类用），如 `新加坡房产快讯` |
 | `topbar_sub` | — | 顶栏右边的小字 |
@@ -106,6 +108,12 @@ card: @0.8+7.5 [先拆价格] 签的是 **10个月** || 短租本来就贵 | 折
 | `captions:` | `captions: B3` / `captions: none` | 覆盖字幕文件；不写就自动找同名的 |
 | `big:` | `big: true` | 这一段用大字幕（开头钩子常用） |
 | `id:` | `id: hook` | 段落 id，不写就是 `s1 s2 s3…` |
+| `music:` | `music: 29_calm_cute_piano` | **从这一段起换歌**（交叉淡化 20 帧）；`music: none` 从这段起没音乐；不写 = 沿用 |
+| `music_volume:` | `music_volume: 0.7` | 只对这一段起的那首生效 |
+| `beat:` | `beat: true` / `beat: 2` | **卡点**：`true` = 把本段多个镜头的切点吸到最近的鼓点；`2` = 每 2 个鼓点切一刀。需要当前配乐是曲库曲子（有鼓点表） |
+| `pulse:` | `pulse: true` | 本段所有镜头在每个鼓点上轻轻放大 5%（图片快闪、卡点段用） |
+| `trans:` | `trans: whip` | 这一段的进场转场（见下面「特效与转场」） |
+| `fx:` | `fx: @1.2 shake` | 段内特效，可多行（见下面） |
 
 ### 画面（写了哪个就用哪个；一段里可以写多个，按顺序排）
 
@@ -118,6 +126,7 @@ broll:  b_1544_scan x1.5            1.5 倍速
 broll:  b_1545_window@9 z1.12 still 缩放 1.12、关掉缓推
 broll:  e_fridge@2+6 p3.2            zoom punch：画面开始后 3.2s 硬切放大 ×1.2（强调用，配 sfx: @3.2 pop）
 broll:  e_fridge@2+6 p3.2/1.3        同上，放大 ×1.3；person: true p4.1 也可以
+broll:  b_1527_river@0.5 pulse       卡点脉冲：每个鼓点轻轻放大一下（photo: / person: 也能加）
 broll:  a@0+3, b@1.5+4, c@0         一段里切三刀，逗号分隔；最后一个铺到段尾
 
 photo:  pool_parcriveria            静图 + Ken Burns 缓推（public/photos/、photos/stock/ 都会找）
@@ -125,6 +134,7 @@ person: true                        口播真人全屏（画面就用 vo 那个 
 person: +3.5                        真人只出镜 3.5 秒，剩下交给下一个镜头
 person: true p4.1                   口播第 4.1 秒硬切放大（zoom punch），强调那句话
 title:  两个前提                     全屏大标题字卡
+title:  两个前提 anim=typewriter     标题逐字打出（自动配打字音效）；anim= 还有 bounce / slide_up / blur / flip
 stat:   4.54% | 毛回报率 | up        数字大卡（数字会滚动，第三段是 up / down / flat）
 chat:   user | 帮我出一份续约协议    对话录屏模拟（AI 工具 demo 用）。角色 user/claude/tool；
                                     user 行逐字打出带光标，tool/claude 行逐条淡入。
@@ -159,6 +169,7 @@ breakdown: [月租3900拆开看] 租金=$3,900 | 管理费=-$280 | 房产税=-$1
 
 ```
 card:  @0.8+7.5 [标签] 标题 || 行1 | 行2      深色玻璃信息卡
+card:  @0.8+7.5 [标签] 标题 anim=bounce       卡片弹入（自动配 boing_pop）；hook: 也能写 anim=
 card_top: 480                                 卡片距顶部像素，默认 320
 hook:  第一行 | 第二行 | 第三行                全屏钩子大字（自动压暗底图，三行三种字号）
 tick:  @9.6+3.2 折下来只差 **$100**            顶部单行，出一句灭一句
@@ -169,8 +180,10 @@ check: @9.6 2/4 | 12:00 | Parc Riviera | 交钥匙给租客   交接进度条（
 sfx:   @3.7 ding                               音效，找 public/sfx/
 ```
 
-可用音效（`public/sfx/`）：`whoosh1` `whoosh2` `whoosh3` `pop` `tick` `count` `swipe`
-`impact_soft` `coin` `cash` `error_buzz` `ding`。
+可用音效 53 个，全表和「什么时候用」见 `public/sfx/README.md`；自制 12 个：`whoosh1/2/3` `pop` `tick` `count` `swipe`
+`impact_soft` `coin` `cash` `error_buzz` `ding`；剪映导入 41 个，常用：`swish` 快切、`riser_tense` 揭晓前、`bass_hit_caption` 大字砸出、
+`cash_register`/`coins_scatter` 讲钱、`ding_short`/`correct_ding` 对勾、`error_beep` 误区、`gasp`/`wow` 反应、`camera_shutter` 定格、
+`typing`/`typing_caption` 打字、`chat_notify` 消息、`dong_variety` 冷场、`applause` 庆祝、`clock_tick` 倒计时、`paper_tear` 撕开揭晓。
 
 ### 文字里的 `**加粗**`
 
@@ -179,10 +192,58 @@ sfx:   @3.7 ding                               音效，找 public/sfx/
 
 ---
 
+## 特效与转场（仿剪映）
+
+`src/fx.tsx`。每种特效都带一个默认音效，写 `nosfx` 关掉，写 `sfx=名字` 换一个。
+
+```
+trans: whip                        这一段甩镜进场（模糊 + 上滑 0.3s，配 whoosh2）
+trans: zoom_through                穿越推进（1.6× → 1，配 whoosh3）
+trans: fade_black / wipe_in / slide_in / glitch_in / open
+
+fx: @0 open +0.8                   开幕：上下黑条打开（配 riser_reverb）
+fx: @1.2 shake                     抖一下 0.4s（配 dong_variety）——说到「但是」「踩坑」
+fx: @2.6 glitch                    故障色条 + 错位 0.32s（配 electric_zap）
+fx: @0.2 flash                     闪白 0.28s（配 swish）——硬切、定格前
+fx: @3 zoom_pulse                  心跳式放大（配 pop_bubble）——强调一个数字
+fx: blur_in / slide_up / spin_in   入场类
+fx: vignette                       暗角撑到段尾（无音效）——严肃、风险提示
+fx: @4.2 close                     闭幕（配 ding_long）——收尾
+fx: @1.2 shake nosfx               不要音效
+fx: @1.2 shake sfx=bass_hit_caption 换个音效
+```
+
+- 特效作用在**本段的画面**上（镜头层），字卡和字幕不抖；盖层类（闪白/开幕/擦除/暗角/故障条）压在画面上、字卡之下。
+- 别堆：一段最多 1 个转场 + 1–2 个特效。口播片的默认是**没有**特效，只在情绪转折点加。
+
+## 配乐、换歌、卡点
+
+```
+---
+music: 33_positive_friends         全片默认曲（曲库 id）
+music_duck: 0.5                    口播时音乐压到一半（默认就是 0.5）
+---
+
+## 讲价格
+music: 25_funky_groove             从这段起换成卡点曲
+beat: 2                            每 2 个鼓点切一个镜头
+pulse: true                        每个鼓点画面轻轻一跳
+broll: a@0, b@2, c@1, d@0          四个镜头不用写时长，切点自动落在鼓点上
+
+## 结尾
+music: none                        从这段起没音乐
+```
+
+鼓点表在 `public/music/bgm/beats/<id>.json`（`{bpm, beats:[秒…]}`）。自己加的曲子跑
+`python3 scripts/beats.py 曲子.mp3 -o public/music/bgm/beats/<id>.json` 就有了（`scripts/add-bgm.mjs` 加曲时会自动跑）。
+音乐会循环；曲子比片子短时鼓点也按曲长平移。
+
 ## 完整例子
 
 `scripts/example.md` 是一个跑得通的真例子（用现成的 `public/vo/B1–B8` 拼的），
 把上面每一种写法都用了一遍。生成出来 112.50 秒 / 3375 帧。
+`scripts/fx-demo.md` 演示换歌 / 卡点 / 特效 / 文字动画，渲染：`npx remotion render src/index-auto.ts FxDemo out/FxDemo.mp4`
+（`src/index-auto.ts` 是只注册 .md 生成的 composition 的轻量入口，不碰新闻/新盘 manifest）。
 
 ---
 

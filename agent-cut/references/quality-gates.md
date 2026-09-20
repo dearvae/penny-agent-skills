@@ -11,6 +11,10 @@
 - Faces, mirrors, addresses, phone numbers, and private details are reviewed.
 - Captions use the cleaned timeline, not the original timeline.
 - Requested talking-head mode is actually supported.
+- Music is assigned per emotional block (≤ 3 tracks), switches only at segment starts, and `music: none` is deliberate.
+- `beat:` / `pulse` appear only on montage segments; generated shot durations after beat snapping are all ≥ 0.3 s and within the usable source range.
+- Every `sfx:` (including the ones added automatically by `fx:` / `trans:` / `anim=`) marks a visible event; the per-minute budget is respected.
+- No segment has more than one transition and two effects; consecutive segments do not both carry effects unless the video is a montage.
 
 ## Frame checks
 
@@ -23,7 +27,9 @@ Render frames near the beginning, every visual change, the first caption, the lo
 - Lip sync is correct whenever the speaker is visible.
 - B-roll changes track the spoken subject.
 - Captions match the retained words and timing.
-- Music never masks speech.
+- Music never masks speech: it ducks under every spoken segment and returns between them.
+- No flash, wipe, shake or glitch hides a readable caption; effects stay on the picture layer.
+- Sound effects never fire on nothing and never stack on the same frame.
 - No frozen first frame or missing media appears.
 - No unexpected freeze, cloned final frame, or motionless duration padding appears. Run `python3 scripts/check_freezes.py OUTPUT.mp4`; a reported freeze blocks delivery until visually resolved.
 - No B-roll source silently loops into unrelated content.
@@ -41,6 +47,7 @@ Report each as `pass`, `partial`, `fail`, or `not requested`:
 6. talking-head placement;
 7. background removal/matting;
 8. audio continuity;
+8b. music and sound design (per-section choice, ducking, effect budget);
 9. visual quality;
 10. publish readiness.
 

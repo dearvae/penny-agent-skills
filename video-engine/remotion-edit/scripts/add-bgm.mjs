@@ -3,7 +3,7 @@
 //   node scripts/add-bgm.mjs <音频文件> "<风格>" "<适合什么内容>" [id]
 //   例：node scripts/add-bgm.mjs ~/Music/soft-piano.mp3 "轻柔钢琴" "温情科普、家庭自住"
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFileSync, readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
+import { copyFileSync, readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
 import { basename, extname, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,6 +36,18 @@ const seconds = Math.round(parseFloat(execFileSync("ffprobe", ["-v", "error", "-
 const line = `  "${id}": { file: "bgm/${id}.mp3", title: ${JSON.stringify(title)}, mood: ${JSON.stringify(mood || "")}, meanDb: ${meanDb}, seconds: ${seconds} },\n`;
 ts = ts.replace("  // ADD_BGM_HERE", line + "  // ADD_BGM_HERE");
 writeFileSync(styles, ts);
+// 鼓点表：给 beat: / pulse 卡点用（numpy + ffmpeg，没有就跳过）
+try {
+  const beatsDir = resolve(root, "public/music/bgm/beats");
+  if (!existsSync(beatsDir)) mkdirSync(beatsDir, { recursive: true });
+  const pys = ["python3", resolve(process.env.HOME || "", "Desktop/自媒体/news-pipeline/.venv/bin/python")];
+  let ok = false;
+  for (const py of pys) {
+    const r = spawnSync(py, [resolve(root, "scripts/beats.py"), out, "-o", resolve(beatsDir, `${id}.json`)], { encoding: "utf-8" });
+    if (r.status === 0) { ok = true; break; }
+  }
+  console.log(ok ? `鼓点表 → public/music/bgm/beats/${id}.json` : "（没算出鼓点表：需要 python3 + numpy，之后可手动跑 scripts/beats.py）");
+} catch {}
 const readme = resolve(root, "public/music/bgm/README.md");
 if (existsSync(readme)) appendFileSync(readme, `\n- 自加曲目 \`${id}\`：${title}${mood ? " · " + mood : ""}（${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}，mean ${meanDb} dB，来源 ${basename(abs)}，版权由添加者自行负责）\n`);
 console.log(`✅ 已加入曲库：${id}（mean ${meanDb} dB，${seconds}s）。script.json 里写 "music": "${id}" 即可，或让它按内容自动挑。`);
