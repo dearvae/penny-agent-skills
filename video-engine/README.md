@@ -28,6 +28,13 @@ node scripts/build-video.mjs scripts/demo.md && npx remotion render Demo out/dem
   `false` 不铺。音量已按曲子校准（音乐 ≈ 人声 −2 dB），2 秒淡入淡出。来源是剪映曲库，各平台商用授权学员自己确认。
 - 落款卡 `signoff` 里 `cea` / `agency` 可选，留空不渲；`cta` 是片尾行动句。
 
+## 两个 skill 共用的工具
+
+- `remotion-edit/scripts/learn_style.py`：给一条参考片，量出字幕位置/字号/颜色/描边、配色、剪辑节奏，
+  出 agent-cut 的 front-matter 和 agent-shot 的 `add-style.mjs` 命令（macOS，文字识别用系统 Vision）。
+- `news-pipeline/fetch_images.py`：没素材的片按关键词搜能商用的真实照片（Wikimedia Commons / Openverse 免 key，
+  Pexels / Unsplash 可选 key），出编号对照图，挑中的自动记出处和署名。
+
 ## 配置（每台机器各自的，不进 git）
 
 - `news-pipeline/.env.minimax`（照 `.env.minimax.example` 建，`chmod 600`）：

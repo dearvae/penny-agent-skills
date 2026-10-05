@@ -13,7 +13,7 @@ import {
 import { Audio, Video } from "@remotion/media";
 import type { Caption } from "@remotion/captions";
 import { NewLaunchEnding, NEWLAUNCH_ENDING_FRAMES, type Signoff } from "./NewLaunchEnding";
-import { theme } from "./theme";
+import { resetTheme, theme } from "./theme";
 import { StyleCtx, resolveMusic, resolveStyle, useStyle, type MusicSpec } from "./styles";
 import { CaptionLine, StatVisual, BulletsVisual, TitleVisual, TopBar, ProgressBar, Decor } from "./StyleKit";
 export { CaptionLine, StatVisual, BulletsVisual, TitleVisual, TopBar, ProgressBar, Decor };
@@ -29,9 +29,9 @@ export type NLVisual =
   | { type: "newscard"; src: string; source?: string }
   | { type: "shot"; src: string; source?: string }
   | { type: "photo"; src: string; source?: string; zoom?: number; focus?: string }
-  | { type: "stat"; value: string; label: string; trend?: "up" | "down" | "flat" }
-  | { type: "bullets"; title: string; items: string[] }
-  | { type: "title"; text: string };
+  | { type: "stat"; value: string; label: string; trend?: "up" | "down" | "flat"; bg?: string; bgSource?: string }
+  | { type: "bullets"; title: string; items: string[]; bg?: string; bgSource?: string }
+  | { type: "title"; text: string; bg?: string; bgSource?: string };
 
 export type NLSegment = {
   id: string;
@@ -318,6 +318,44 @@ const PhotoVisual: React.FC<{
   );
 };
 
+/** 文字类画面（stat / bullets / title）垫一张真实照片：照片缓推 + 压暗，风格的底色换成透明、字换成白色，
+ *  StyleKit 里每一种版式不用改就能叠在照片上。`bg` 是 shots/ 下的图，`bgSource` 写来源角标（CC 图要署名）。 */
+const PhotoBackdrop: React.FC<{ src: string; source?: string; slug: string; frames: number; children: React.ReactNode }> = ({
+  src,
+  source,
+  slug,
+  frames,
+  children,
+}) => {
+  const frame = useCurrentFrame();
+  const st = useStyle();
+  const zoom = interpolate(frame, [0, frames], [1.04, 1.1], { extrapolateRight: "clamp" });
+  const over = {
+    ...st,
+    bg: "transparent",
+    bgSoft: "transparent",
+    text: "#FFFFFF",
+    textMuted: "rgba(255,255,255,0.78)",
+    surface: "rgba(0,0,0,0.38)",
+    border: "rgba(255,255,255,0.22)",
+  };
+  return (
+    <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
+      <Img
+        src={asset(slug, src)}
+        style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${zoom})` }}
+      />
+      <AbsoluteFill style={{ background: "rgba(0,0,0,0.52)" }} />
+      <StyleCtx.Provider value={over}>{children}</StyleCtx.Provider>
+      {source ? (
+        <AbsoluteFill style={{ alignItems: "flex-end", justifyContent: "flex-end", padding: "0 40px 250px" }}>
+          <SourceChip text={source} />
+        </AbsoluteFill>
+      ) : null}
+    </AbsoluteFill>
+  );
+};
+
 const VisualLayer: React.FC<{ v: NLVisual; slug: string; frames: number }> = ({
   v,
   slug,
@@ -333,11 +371,18 @@ const VisualLayer: React.FC<{ v: NLVisual; slug: string; frames: number }> = ({
     case "photo":
       return <PhotoVisual v={v} slug={slug} frames={frames} />;
     case "stat":
-      return <StatVisual v={v} />;
     case "bullets":
-      return <BulletsVisual v={v} />;
-    case "title":
-      return <TitleVisual v={v} />;
+    case "title": {
+      const inner =
+        v.type === "stat" ? <StatVisual v={v} /> : v.type === "bullets" ? <BulletsVisual v={v} /> : <TitleVisual v={v} />;
+      return v.bg ? (
+        <PhotoBackdrop src={v.bg} source={v.bgSource} slug={slug} frames={frames}>
+          {inner}
+        </PhotoBackdrop>
+      ) : (
+        inner
+      );
+    }
     default:
       return <AbsoluteFill style={{ background: resolveStyle().bg }} />;
   }
@@ -382,6 +427,7 @@ const Stamp: React.FC<{ text: string }> = ({ text }) => {
    ──────────────────────────────────────────────────────────── */
 
 export const NewLaunchVideo: React.FC<{ manifest: NewLaunchManifest }> = ({ manifest }) => {
+  resetTheme(); // AutoVideo 可能改过共享的 theme（参考片风格），这里回到默认
   const { fps } = useVideoConfig();
   const total = newLaunchDuration(manifest);
   const kicker = manifest.cover?.kicker ?? "新盘介绍";

@@ -13,7 +13,7 @@ import {
 import { Audio, Video } from "@remotion/media";
 import type { Caption } from "@remotion/captions";
 import { NewsEnding, endingFrames, type EndingVariant } from "./NewsEnding";
-import { theme } from "./theme";
+import { resetTheme, theme } from "./theme";
 import { renderP1Visual, type P1Visual } from "./NewsVisualsP1";
 import {resolveBackground, resolveLoop} from "./newsMediaPlan";
 
@@ -1151,6 +1151,7 @@ const Stamp: React.FC<{ text: string }> = ({ text }) => {
    ──────────────────────────────────────────────────────────── */
 
 export const NewsVideo: React.FC<{ manifest: NewsManifest }> = ({ manifest }) => {
+  resetTheme(); // AutoVideo 可能改过共享的 theme（参考片风格），这里回到默认
   const { fps } = useVideoConfig();
   const total = newsDuration(manifest);
   const kicker = manifest.cover?.kicker ?? "新加坡房产快讯";

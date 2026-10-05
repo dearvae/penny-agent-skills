@@ -205,7 +205,8 @@ export const BulletsVisual: React.FC<{ v: { title: string; items: string[] } }> 
       {v.items.map((t, i) => { const s = item(i); return (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, background: "#fff", borderRadius: 40, padding: "28px 34px", marginBottom: 22, boxShadow: "0 12px 30px rgba(80,60,40,0.10)", transform: `translateY(${(1 - s) * 30}px)`, opacity: Math.min(1, s * 1.5) }}>
           <div style={{ minWidth: 60, height: 60, borderRadius: "50%", background: st.highlight, color: "#fff", fontSize: 30, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</div>
-          <div style={{ fontSize: 44, fontWeight: 600, color: st.text }}>{t}</div>
+          {/* 卡片底是写死的白，字也要写死成深色：照片垫底时 st.text 会被换成白字 */}
+          <div style={{ fontSize: 44, fontWeight: 600, color: "#1C1A16" }}>{t}</div>
         </div>); })}
     </>);
   }

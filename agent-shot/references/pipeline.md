@@ -19,8 +19,12 @@
   `stat`（滚动大数字）、`bullets`、`title`（每行 ≤7 字最稳）、`sticker`（红章）。
   算账片多用 `stat`；数据来源角标写清（「图 · URA」）。
 - **不要用任何别人的实拍素材**——素材要么是他自己给的，要么是版权干净的网图。
-- 网图优先级：事件方官方通稿图 → Wikimedia Commons → Pexels/Unsplash。
-  下载到 `<slug>/shots/`，每张记进 `shots/SOURCES.md`（文件 ← URL）。
+- 网图：**没素材的片主动搜**（SKILL.md 第 2b 步）。`news-pipeline/fetch_images.py search` 从 Wikimedia Commons、Openverse
+  （免 key）和 Pexels / Unsplash（`news-pipeline/.env.images` 里有 key 才搜）找能商用的照片，出编号对照图；
+  `fetch_images.py pick` 把挑中的改名放进 `<slug>/shots/`，出处写 `shots/SOURCES.md`、署名写 `shots/CREDITS.txt`。
+  事件方官方通稿图用 `--page <官方页面URL>` 列进候选，确认条款再用。
+- `stat` / `bullets` / `title` 可以垫照片：加 `"bg": "shots/<图>.jpg"`（照片缓推 + 压暗，字自动换白色），
+  `"bgSource"` 写署名（CC BY / BY-SA 必须写）。`photo` 段的署名写 `"source"`。
 - 新闻卡截图：`cd news-pipeline && ./.venv/bin/python shoot.py --url <一手来源URL> --id <短名> --outdir ../remotion-edit/public/newlaunch/<slug>/shots`
 - 最后一段留给落款卡：`signoff` 写姓名 + 头像 + 联系方式 + `cta`（行动句，默认「想看户型图和价格表」是新盘片的，
   新闻/算账/科普片写「有问题，找我聊」这类）。`cea` / `agency` **他给了才填，没给留空**，引擎不会渲出空行；
@@ -164,4 +168,17 @@ cd remotion-edit && bash scripts/cover-previews.sh render <slug> '{"styleId":"<�
 - 产物直接落在 `public/newlaunch/<slug>/`：`cover.png` 1080×1920（视频首帧 + 视频号）、`cover_1440.png` 1080×1440（小红书）。
 - script.json / manifest.json 的 `coverImage` 填 `cover.png`，引擎静置 0.5 秒当首帧，默认如此。
 - 标题每行 ≤6 字（超了会折行撞图），副行一组硬数字。渲完 Read 看图：字没撞人像、没超框；有问题改 props 重渲，几秒钟。
-- 底图只用这条片里版权干净的图；头像用档案里的抠图（`headshot_cutout.png`，拷到片目录或写相对路径）。
+- 底图只用这条片里版权干净的**真实照片**（他给的、或 fetch_images 挑出来的）；纯色 `plain` 版式只在一张照片都没有时用。
+  头像用档案里的抠图（`headshot_cutout.png`，拷到片目录或写相对路径）。
+
+## 5. 学参考片的风格（他给了参考视频时）
+
+```bash
+cd remotion-edit && python3 scripts/learn_style.py <参考片.mp4> --out ../风格/<名字> --name <名字>
+```
+
+出 `style_brief.md`（量出来的字幕位置 / 字号 / 颜色 / 描边或底框 / 高亮色、配色、节奏 + 一条现成的 `add-style.mjs` 命令）
+和 `palette.jpg` `captions.jpg` `entry_*.jpg` `cut_*.jpg`。字体类别和动画方式要 Read 图自己判断，填进命令的 `--font` / `--motion` 再跑。
+`add-style.mjs` 除颜色外还能单独指定设计语言：`--caption shadow|stroke|pill|plain|band|paper`、`--motion pop|soft|fade|slide|wipe`、
+`--title` `--stat` `--bullets` `--topbar` `--decor` `--progress`（取值见脚本头部注释），没写的跟 `--like` 那套走。
+需要 macOS（文字识别用系统自带的 Vision）。

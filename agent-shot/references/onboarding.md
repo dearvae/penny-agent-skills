@@ -148,6 +148,9 @@ npx remotion render StylePreview-<id> out/style-previews/<id>.mp4 --log=error
 ```
 
    不满意就改参数同 id 重跑（覆盖），或说「主色再深一点」「换成杂志感字体」你换参数再渲。
+
+   **路三 · 他丢一条喜欢的视频**（最准：图只能取色，视频还能量字幕、看动画）。跑 `scripts/learn_style.py`，
+   照 SKILL.md 第 2c 步：量出来的字幕样式和配色直接进命令，字体和动画 Read 对照图后自己填，渲样片给他确认。
    定了就当内置风格一样用：script.json `"style": "<id>"`。自定义风格存在他电脑的 `remotion-edit/src/customStyles.json`，引擎更新不会覆盖。
 
 5. 写进档案：`视觉风格 = <id>`，`默认 BGM = 跟风格走` 或他点名的曲子

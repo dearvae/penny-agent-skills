@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Easing,
   Img,
+  getInputProps,
   Sequence,
   interpolate,
   spring,
@@ -15,10 +16,14 @@ import { Audio, Video } from "@remotion/media";
 import type { Caption } from "@remotion/captions";
 import { Ending, ENDING_FRAMES } from "./Ending";
 import { ProgressCheck, PROGRESS_CHECK_FRAMES } from "./ProgressCheck";
-import { theme } from "./theme";
+import { applyTheme, theme } from "./theme";
 import { Sfx, SFX_NAMES, type SfxName } from "./sfx";
 import { WordCaptions } from "./WordCaptions";
 import { BarCompare, CountUp, PriceBreakdown, Timeline } from "./DataAnim";
+
+/** 质检用：`--props='{"qaClean":true}'` 渲染一版不带字卡/字幕/顶栏的干净画面，
+ *  agent-cut 的 qa_layout.py 拿它和成片逐帧相减，算出叠加层盖住了哪里 */
+const QA_CLEAN = Boolean((getInputProps() as { qaClean?: boolean } | undefined)?.qaClean);
 import { FxOverlay, fxContainerStyle, animEnterStyle, typewriterSlice, type FxCue, type AnimName } from "./fx";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -165,6 +170,8 @@ export type AutoSegment = {
   /** 音频入点（秒） */
   voTrim?: number;
   voVolume?: number;
+  /** 截段口播：首尾各 1 帧半音量，防切点咔哒 */
+  voEdgeFade?: boolean;
   /** public/ 下的相对路径，如 "captions/A1.json" */
   captions?: string;
   /** 字幕整体位移（秒），= voTrim */
@@ -199,6 +206,8 @@ export type AutoVideoData = {
   /** 连续 room tone 垫底音量。不写＝按克隆声默认 0.45；用她真人录音的片子写 0.2；不要写 0 关掉。
    *  为什么要有：见 src/NewsVideo.tsx 里 roomtone 那段注释。 */
   roomTone?: number;
+  /** 参考片学来的颜色 / 字体 / 字幕样式（.md 的 theme_* / caption_*），覆盖 theme.ts 的默认值 */
+  theme?: Partial<typeof theme>;
   topbar?: { kicker: string; sub?: string };
   /** 底部整片进度条 */
   progressBar?: boolean;
@@ -268,35 +277,45 @@ const CaptionLine: React.FC<{ text: string; big: boolean }> = ({
   big,
 }) => {
   const frame = useCurrentFrame();
-  const scale = interpolate(frame, [0, 4], [0.93, 1], {
-    extrapolateRight: "clamp",
-  });
-  const opacity = interpolate(frame, [0, 3], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  const anim = theme.captionAnim;
+  const scale = anim === "pop" ? interpolate(frame, [0, 4], [0.93, 1], { extrapolateRight: "clamp" }) : 1;
+  const opacity = anim === "none" ? 1 : interpolate(frame, [0, anim === "fade" ? 6 : 3], [0, 1], { extrapolateRight: "clamp" });
+  const lift = anim === "slide" ? interpolate(frame, [0, 6], [24, 0], { extrapolateRight: "clamp" }) : 0;
+  const size = big ? Math.round(theme.captionSize * 1.28) : theme.captionSize;
+  const treat = theme.captionStyle;
+  const look: React.CSSProperties =
+    treat === "stroke"
+      ? { WebkitTextStroke: `${Math.max(3, Math.round(size / 9))}px rgba(0,0,0,0.92)`, paintOrder: "stroke fill" }
+      : treat === "box"
+        ? { background: theme.captionBox, padding: "6px 22px", borderRadius: 10 }
+        : treat === "plain"
+          ? {}
+          : {
+              textShadow:
+                "0 2px 8px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.5), 2px 2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9)",
+            };
   const parts = text.split(NUM_SPLIT);
   return (
     <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center" }}>
       <div
         style={{
-          marginBottom: big ? 420 : 330,
-          transform: `scale(${scale})`,
+          marginBottom: big ? theme.captionBottom + 90 : theme.captionBottom,
+          transform: `translateY(${lift}px) scale(${scale})`,
           opacity,
           fontFamily: theme.font,
-          fontSize: big ? 74 : 58,
-          fontWeight: 900,
-          color: "#FFFFFF",
+          fontSize: size,
+          fontWeight: theme.captionWeight,
+          color: theme.captionColor,
           letterSpacing: 2,
           textAlign: "center",
           maxWidth: 960,
           lineHeight: 1.25,
-          textShadow:
-            "0 2px 8px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.5), 2px 2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9)",
+          ...look,
         }}
       >
         {parts.map((p, i) =>
           IS_NUM.test(p) ? (
-            <span key={i} style={{ color: theme.gold }}>
+            <span key={i} style={{ color: theme.captionHighlight || theme.gold }}>
               {p}
             </span>
           ) : (
@@ -1489,11 +1508,14 @@ const SegmentView: React.FC<{ seg: AutoSegment; frames: number; absFrom?: number
         <Audio
           src={staticFile(seg.vo)}
           trimBefore={Math.round((seg.voTrim ?? 0) * fps)}
-          volume={() => voVol}
+          volume={(f) =>
+            seg.voEdgeFade && (f === 0 || f >= frames - 1) ? voVol * 0.5 : voVol
+          }
         />
       ) : null}
 
       {seg.overlays.map((o, i) => {
+        if (QA_CLEAN && o.kind !== "sfx") return null;
         const at = Math.round((o.kind === "sfx" ? (o.at ?? 0) : (o.at ?? 0)) * fps);
         if (o.kind === "sfx") {
           // 库里有的音效走 sfx.ts（自带 Sequence + 调好的默认音量）
@@ -1538,7 +1560,7 @@ const SegmentView: React.FC<{ seg: AutoSegment; frames: number; absFrom?: number
         );
       })}
 
-      {seg.captions ? (
+      {seg.captions && !QA_CLEAN ? (
         // captions/X.words.json → 逐词高亮；captions/X.json → 整句
         seg.captions.endsWith(".words.json") ? (
           <WordCaptions
@@ -1563,6 +1585,8 @@ const SegmentView: React.FC<{ seg: AutoSegment; frames: number; absFrom?: number
    ────────────────────────────────────────────────────────────── */
 
 export const AutoVideo: React.FC<{ data: AutoVideoData }> = ({ data }) => {
+  // 每次渲染按这条片的主题重设（没有覆盖就回到默认），子组件读 theme 时已经是这条片的值
+  applyTheme(data.theme);
   const { fps } = useVideoConfig();
   const body = autoBodyFrames(data);
   const musicVol = data.music?.volume ?? 0.075;
@@ -1653,7 +1677,7 @@ export const AutoVideo: React.FC<{ data: AutoVideoData }> = ({ data }) => {
         </Sequence>
       ))}
 
-      {data.topbar || data.progressBar ? (
+      {(data.topbar || data.progressBar) && !QA_CLEAN ? (
         <Sequence durationInFrames={body} name="chrome">
           {data.topbar ? (
             <TopBar kicker={data.topbar.kicker} sub={data.topbar.sub} />

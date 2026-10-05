@@ -34,7 +34,9 @@ const warn = (msg) => console.error(`\x1b[33m⚠ ${msg}\x1b[0m`);
    ══════════════════════════════════════════════════════════════ */
 
 const coerce = (raw) => {
-  const v = raw.trim();
+  let v = raw.trim();
+  // 行尾注释（`key: value   # 说明`）；引号里的、和值本身以 # 开头的（颜色 #FFFFFF）不动
+  if (!/^["']/.test(v)) v = v.replace(/\s+#.*$/, "");
   if (v === "") return "";
   if (v === "true" || v === "yes") return true;
   if (v === "false" || v === "no") return false;
@@ -480,6 +482,12 @@ const buildSegments = (sections, fm, dirs) => {
   const musicMult = fm.music_volume === undefined ? undefined : Number(fm.music_volume);
   if (fm.music && String(fm.music) !== "none") cues.push({ fromSec: 0, ...resolveMusic(fm.music, musicMult) });
   let startSec = 0;
+  /** 跳切推镜（见下面 person 段落）：和 AutoVideo.PersonShot 的默认放大保持一致 */
+  const PERSON_ZOOM = 1.32;
+  const jumpFactor =
+    fm.jumpcut_zoom === false || fm.jumpcut_zoom === "false" ? 1 : Number(fm.jumpcut_zoom ?? 1.1) || 1.1;
+  let jumpPrev = null;
+  let jumpCuts = 0;
 
   sections.forEach((sec, idx) => {
     const f = sec.fields;
@@ -779,6 +787,30 @@ const buildSegments = (sections, fm, dirs) => {
       }
     }
 
+    /* ── 跳切推镜：同一条口播素材、源时间不连续、画面上前后紧挨的两个人像镜头，
+          第二个放大 1.1 倍（再下一个回到原大小），把剪掉口误留下的「人一跳」藏起来。
+          front-matter `jumpcut_zoom: false` 关掉，写数字改倍数。手写了 z 的镜头不动。 */
+    for (const item of laid) {
+      const sh = item.shot;
+      if (sh.kind !== "person" || !vo) {
+        jumpPrev = null;
+        continue;
+      }
+      const start = sh.trim ?? 0;
+      const isJump =
+        jumpFactor > 1 && jumpPrev && jumpPrev.vo === vo && Math.abs(start - jumpPrev.end) > 0.05;
+      let zoomed = false;
+      if (isJump && sh.zoom === undefined) {
+        zoomed = !jumpPrev.zoomed;
+        if (zoomed) sh.zoom = Math.round(PERSON_ZOOM * jumpFactor * 1000) / 1000;
+        jumpCuts++;
+      } else if (jumpPrev && jumpPrev.vo === vo && !isJump) {
+        zoomed = jumpPrev.zoomed && sh.zoom === undefined;
+        if (zoomed) sh.zoom = Math.round(PERSON_ZOOM * jumpFactor * 1000) / 1000;
+      }
+      jumpPrev = { vo, end: start + item.dur, zoomed };
+    }
+
     // 记住这一段最后一个连续型镜头，给下一段沿用
     const last = laid[laid.length - 1];
     if (last && (last.shot.kind === "broll" || last.shot.kind === "photo")) {
@@ -902,6 +934,8 @@ const buildSegments = (sections, fm, dirs) => {
     if (text) seg.text = text;
     if (vo) seg.vo = vo;
     if (voTrim) seg.voTrim = voTrim;
+    // 从长录音里截出来的段（带入点或出点）：首尾各 1 帧半音量，掐掉切点的咔哒声
+    if (vo && (voTrim || voLen !== undefined)) seg.voEdgeFade = true;
     const vol = one(f, "volume");
     if (vol !== undefined) seg.voVolume = Number(vol);
     if (captions) seg.captions = captions;
@@ -916,6 +950,7 @@ const buildSegments = (sections, fm, dirs) => {
       vo: seg.vo,
       voTrim: seg.voTrim,
       voVolume: seg.voVolume,
+      voEdgeFade: seg.voEdgeFade,
       captions: seg.captions,
       captionsOffset: seg.captionsOffset,
       big: seg.big,
@@ -936,6 +971,7 @@ const buildSegments = (sections, fm, dirs) => {
   });
   beats.sort((a, b) => a - b);
   const musicCues = cues.map((c) => ({ fromSec: Math.round(c.fromSec * 1000) / 1000, src: c.src, volume: c.volume === undefined ? undefined : Math.round(c.volume * 10000) / 10000 }));
+  if (jumpCuts) console.log(`  跳切推镜 ${jumpCuts} 处（×${jumpFactor}，front-matter jumpcut_zoom: false 可关）`);
   return Object.assign(segments, { musicCues, beats });
 };
 
@@ -995,6 +1031,28 @@ const buildOne = (mdPath) => {
   // room tone 垫底：不写＝用 AutoVideo 的默认 0.45（对应 MiniMax 克隆声）。
   // 用她真人录音的片子写 room_tone: 0.2。原理见 .claude/skills/news-shot/SKILL.md 第 6.5 步。
   if (fm.room_tone !== undefined) data.roomTone = Number(fm.room_tone);
+  // 主题覆盖（learn_style.py 从参考片量出来的那几行）：theme_* 管颜色字体，caption_* 管字幕
+  const FONT_STACKS = {
+    sans: `"PingFang SC", "Hiragino Sans GB", "Heiti SC", sans-serif`,
+    serif: `"Songti SC", "Noto Serif SC", "STSong", serif`,
+    rounded: `"Yuanti SC", "PingFang SC", "Hiragino Sans GB", sans-serif`,
+  };
+  const THEME_KEYS = {
+    theme_ink: "ink", theme_accent: "accent", theme_highlight: "gold", theme_font: "font",
+    caption_color: "captionColor", caption_highlight: "captionHighlight", caption_style: "captionStyle",
+    caption_box: "captionBox", caption_size: "captionSize", caption_bottom: "captionBottom",
+    caption_weight: "captionWeight", caption_anim: "captionAnim",
+  };
+  const themeOver = {};
+  for (const [k, field] of Object.entries(THEME_KEYS)) {
+    if (fm[k] === undefined || fm[k] === "") continue;
+    themeOver[field] = field === "font" ? FONT_STACKS[fm[k]] ?? String(fm[k]) : fm[k];
+  }
+  if (themeOver.captionStyle && !["shadow", "stroke", "box", "plain"].includes(themeOver.captionStyle))
+    die(`caption_style 只能是 shadow / stroke / box / plain，收到 ${themeOver.captionStyle}`);
+  if (themeOver.captionAnim && !["pop", "fade", "slide", "none"].includes(themeOver.captionAnim))
+    die(`caption_anim 只能是 pop / fade / slide / none，收到 ${themeOver.captionAnim}`);
+  if (Object.keys(themeOver).length) data.theme = themeOver;
   if (fm.topbar) {
     data.topbar = { kicker: String(fm.topbar) };
     if (fm.topbar_sub !== undefined) data.topbar.sub = String(fm.topbar_sub);

@@ -91,6 +91,7 @@ card: @0.8+7.5 [先拆价格] 签的是 **10个月** || 短租本来就贵 | 折
 | `progressbar` | `false` | 底部整片进度条 |
 | `big` | `false` | 全片默认用大字幕 |
 | `zoom` | — | b-roll 默认缩放，如 `1.05` |
+| `jumpcut_zoom` | `1.1` | 跳切推镜：同一条口播素材、源时间不连续、前后紧挨的两个 `person:` 镜头，第二个放大到这个倍数、再下一个回原大小，藏住剪掉口误后人一跳。`false` 关掉；手写了 `z` 的镜头不动 |
 | `vo_dir` / `broll_dir` / `photo_dir` / `captions_dir` / `sfx_dir` | `vo` / `broll` / `photos` / `captions` / `sfx` | 素材目录（相对 `public/`） |
 
 ---
@@ -201,7 +202,7 @@ trans: whip                        这一段甩镜进场（模糊 + 上滑 0.3s�
 trans: zoom_through                穿越推进（1.6× → 1，配 whoosh3）
 trans: fade_black / wipe_in / slide_in / glitch_in / open
 
-fx: @0 open +0.8                   开幕：上下黑条打开（配 riser_reverb）
+fx: @0+0.8 open                    开幕：上下黑条打开（配 riser_reverb）；时长写在入点后面 @入点+时长
 fx: @1.2 shake                     抖一下 0.4s（配 dong_variety）——说到「但是」「踩坑」
 fx: @2.6 glitch                    故障色条 + 错位 0.32s（配 electric_zap）
 fx: @0.2 flash                     闪白 0.28s（配 swish）——硬切、定格前
@@ -286,6 +287,36 @@ import { GENERATED_VIDEOS } from "./generated";
   />
 ))}
 ```
+
+---
+
+## 参考片风格（照着别人的片子调颜色和字幕）
+
+`python3 scripts/learn_style.py 参考片.mp4 --out work/style/x` 量完会给出这几行，原样贴进 front-matter：
+
+```yaml
+caption_style: stroke        # shadow 阴影（默认）/ stroke 描边 / box 底框 / plain 无
+caption_color: "#FFFFFF"     # 字幕字色
+caption_highlight: "#FFE14D" # 字幕里数字的颜色（默认跟 theme_highlight）
+caption_box: "#111111"       # caption_style: box 时的底框色
+caption_size: 62             # 字号 px（默认 58；big 段自动 ×1.28）
+caption_bottom: 360          # 离底 px（默认 330；big 段自动 +90）
+caption_weight: 700          # 字重（默认 900）
+caption_anim: fade           # pop 弹出（默认）/ fade 淡入 / slide 上滑 / none 直接出
+theme_accent: "#DE693C"      # 强调色：印章、角标
+theme_highlight: "#E9A23B"   # 高亮色：字卡标签、数字
+theme_ink: "#17171B"         # 深底色
+theme_font: sans             # sans 黑体 / serif 宋体 / rounded 圆体，或直接写 CSS 字体栈
+```
+
+颜色带 `#` 要加引号；行尾 `# 注释` 会被忽略。都不写 = 引擎原来的样子。
+
+---
+
+## 质检用的干净版
+
+`npx remotion render src/index-auto.ts <id> out/x.qaclean.mp4 --props '{"qaClean":true}'` 渲染一版不带字卡、字幕、顶栏的画面
+（镜头、数据画面、特效都照常），agent-cut 的 `qa_layout.py` 拿它和成片比对，算字卡盖住了哪里。平时不用管。
 
 ---
 

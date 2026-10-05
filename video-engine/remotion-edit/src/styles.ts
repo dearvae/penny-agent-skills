@@ -226,7 +226,10 @@ export const STYLE_PRESETS: Record<BuiltinStyleId, StylePreset> = {
 /* 自定义风格：scripts/add-style.mjs 写进 src/customStyles.json（每台机器自己的，不随引擎更新覆盖）。
    字段和内置预设一样；缺的字段用 classic 补齐。 */
 const CUSTOM: Record<string, StylePreset> = Object.fromEntries(
-  Object.entries(customStyles as Record<string, Partial<StylePreset> & { like?: string }>).map(([id, c]) => {
+  // design 只写要改的那几项（add-style.mjs 的 --caption / --motion …），其余跟 like 那套走
+  Object.entries(
+    customStyles as unknown as Record<string, Omit<Partial<StylePreset>, "design"> & { like?: string; design?: Partial<Design> }>,
+  ).map(([id, c]) => {
     const base = (c.like && ({ ...STYLE_PRESETS, ...LEGACY_PRESETS } as Record<string, StylePreset>)[c.like]) || LEGACY_PRESETS.classic;
     return [id, { ...base, ...c, id, font: c.font || base.font, design: { ...base.design, ...(c.design || {}) } } as StylePreset];
   }),

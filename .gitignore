@@ -12,3 +12,6 @@
 # python 编译缓存
 __pycache__/
 *.pyc
+
+# 依赖目录（装机时 npm install 生成）
+node_modules/

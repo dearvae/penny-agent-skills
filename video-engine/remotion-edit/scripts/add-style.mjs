@@ -2,6 +2,11 @@
 // 生成一套自定义视觉风格，写进 src/customStyles.json（同 id 覆盖）。
 //   按描述：node scripts/add-style.mjs <id> --label "海盐蓝" --desc "浅色清爽" --bg "#F2F7FA" --accent "#2A7FB8" --highlight "#1E5F8A" [--font serif|sans|rounded] [--box] [--radius 999] [--bgm 09_light_relaxed]
 //   按图片：node scripts/add-style.mjs <id> --label "..." --from-image ~/Desktop/ref.jpg [--light|--dark] [--font serif] [--box]
+//   学参考片：learn_style.py 量完会给出整行命令，另外可以单独指定设计语言里的每一项（不写就跟 --like 那套走）：
+//     --caption shadow|stroke|pill|plain|band|paper   --motion pop|soft|fade|slide|wipe
+//     --title underline|marker|wave|plain|block|rules --stat center|marker|circle|thin|box|serif
+//     --bullets cards|stickers|rounded|lines|panel|numerals  --topbar pill|tag|bar|none|rules
+//     --decor none|stripes|blobs|ticker|grid|corners   --progress bar|thin|none
 // 没给的字段按取色规则自动推：深底配浅字，浅底配深字并给字幕加底框。
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -86,10 +91,28 @@ const preset = {
   captionNumber: box ? (light ? hex(...mix(highlight, [255, 255, 255], 0.55)) : hex(...highlight)) : hex(...highlight),
   ...(box ? { captionBox: light ? rgba(text, 0.86) : rgba(bg, 0.85) } : {}),
 };
+// 设计语言里单独指定的几项（参考片学来的字幕样式、动画方式……），合并到 like 那套的 design 上
+const DESIGN_ENUMS = {
+  caption: ["shadow", "stroke", "pill", "plain", "band", "paper"],
+  motion: ["pop", "soft", "fade", "slide", "wipe"],
+  title: ["underline", "marker", "wave", "plain", "block", "rules"],
+  stat: ["center", "marker", "circle", "thin", "box", "serif"],
+  bullets: ["cards", "stickers", "rounded", "lines", "panel", "numerals"],
+  topbar: ["pill", "tag", "bar", "none", "rules"],
+  decor: ["none", "stripes", "blobs", "ticker", "grid", "corners"],
+  progress: ["bar", "thin", "none"],
+};
+const design = {};
+for (const [k, allowed] of Object.entries(DESIGN_ENUMS)) {
+  if (opt[k] === undefined) continue;
+  if (!allowed.includes(opt[k])) { console.error(`--${k} 只能是 ${allowed.join(" / ")}，收到 ${opt[k]}`); process.exit(1); }
+  design[k] = opt[k];
+}
+if (Object.keys(design).length) preset.design = design;
 const file = resolve(root, "src/customStyles.json");
 const all = JSON.parse(readFileSync(file, "utf-8"));
 all[id] = preset;
 writeFileSync(file, JSON.stringify(all, null, 2) + "\n");
-console.log(`✅ 风格 ${id}（${preset.label}）已写入 src/customStyles.json：底 ${preset.bg} · 强调 ${preset.accent} · 高亮 ${preset.highlight} · ${light ? "浅底" : "深底"}${box ? " · 字幕带底框" : ""}`);
+console.log(`✅ 风格 ${id}（${preset.label}）已写入 src/customStyles.json：底 ${preset.bg} · 强调 ${preset.accent} · 高亮 ${preset.highlight} · ${light ? "浅底" : "深底"}${box ? " · 字幕带底框" : ""}${preset.design ? " · 设计 " + JSON.stringify(preset.design) : ""}`);
 console.log(`看效果：npx remotion render StylePreview-${id} out/style-previews/${id}.mp4 --log=error`);
 console.log(`或对比图：npx remotion still StyleSheet out/style-previews/对比图.png --log=error`);

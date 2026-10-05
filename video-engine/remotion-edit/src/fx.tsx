@@ -102,7 +102,9 @@ const progressOf = (cue: FxCue, frame: number, fps: number, segFrames: number) =
   const from = Math.round((cue.at ?? 0) * fps);
   const defSec = FX_DEFAULT_SEC[cue.name];
   const len = cue.dur !== undefined ? Math.round(cue.dur * fps) : defSec > 0 ? Math.round(defSec * fps) : segFrames - from;
-  if (frame < from || frame >= from + Math.max(1, len)) return null;
+  if (frame < from) return null;
+  // 闭幕合上之后要一直黑到段尾，不能再露出画面
+  if (frame >= from + Math.max(1, len)) return cue.name === "close" ? { p: 1, f: frame - from, len } : null;
   return { p: (frame - from) / Math.max(1, len), f: frame - from, len };
 };
 
